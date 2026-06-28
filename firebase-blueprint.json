@@ -1,0 +1,247 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "SoundStream listener/creator user profile",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Auth UID" },
+        "username": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "role": { "type": "string", "enum": ["listener", "artist", "admin"] },
+        "isSuspended": { "type": "boolean" },
+        "subscription": {
+          "type": "object",
+          "properties": {
+            "status": { "type": "string", "enum": ["free", "premium"] },
+            "expiresAt": { "type": "string" },
+            "updatedAt": { "type": "string" }
+          },
+          "required": ["status"]
+        }
+      },
+      "required": ["uid", "username", "email", "createdAt", "role"]
+    },
+    "AdLog": {
+      "title": "AdLog",
+      "description": "Log of an ad event",
+      "type": "object",
+      "properties": {
+        "eventType": { "type": "string" },
+        "adUnitId": { "type": "string" },
+        "rewardValue": { "type": "number" },
+        "timestamp": { "type": "string" },
+        "platform": { "type": "string" }
+      },
+      "required": ["eventType", "adUnitId", "platform"]
+    },
+    "Artist": {
+      "title": "Artist",
+      "description": "Artist page metadata details",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "References user UID" },
+        "userId": { "type": "string", "description": "References user ID for backwards compatibility" },
+        "artistName": { "type": "string" },
+        "bio": { "type": "string" },
+        "verified": { "type": "boolean" },
+        "profilePhoto": { "type": "string" },
+        "followersCount": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "isSuspended": { "type": "boolean" },
+        "isFeatured": { "type": "boolean" }
+      },
+      "required": ["uid", "artistName", "followersCount", "createdAt"]
+    },
+    "Song": {
+      "title": "Song",
+      "description": "A single audio track record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "artistId": { "type": "string" },
+        "artistName": { "type": "string" },
+        "title": { "type": "string" },
+        "genre": { "type": "string" },
+        "audioUrl": { "type": "string" },
+        "coverUrl": { "type": "string" },
+        "playCount": { "type": "number" },
+        "lyrics": { "type": "string" },
+        "isFeatured": { "type": "boolean" },
+        "isModerated": { "type": "boolean" }
+      },
+      "required": ["id", "artistId", "artistName", "title", "genre", "audioUrl"]
+    },
+    "Playlist": {
+      "title": "Playlist",
+      "description": "User created playlist of sounds",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "songsList": { "type": "array", "description": "Array of song ID strings" }
+      },
+      "required": ["id", "userId", "name"]
+    },
+    "Like": {
+      "title": "Like",
+      "description": "User liking/favoriting a track",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "songId": { "type": "string" }
+      },
+      "required": ["userId", "songId"]
+    },
+    "Follow": {
+      "title": "Follow",
+      "description": "User following an artist",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "artistId": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["userId", "artistId", "createdAt"]
+    },
+    "Album": {
+      "title": "Album",
+      "description": "An album or EP containing multiple tracks",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "artistId": { "type": "string" },
+        "artistName": { "type": "string" },
+        "description": { "type": "string" },
+        "genre": { "type": "string" },
+        "coverUrl": { "type": "string" },
+        "releaseDate": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "trackCount": { "type": "number" },
+        "totalDuration": { "type": "number" },
+        "isEP": { "type": "boolean" }
+      },
+      "required": ["title", "artistId", "artistName"]
+    },
+    "LikedSong": {
+      "title": "LikedSong",
+      "description": "Tracks liked by users",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "songId": { "type": "string" },
+        "likedAt": { "type": "string" }
+      },
+      "required": ["userId", "songId", "likedAt"]
+    },
+    "RecentlyPlayed": {
+      "title": "RecentlyPlayed",
+      "description": "User play history",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "songId": { "type": "string" },
+        "playedAt": { "type": "string" }
+      },
+      "required": ["userId", "songId", "playedAt"]
+    },
+    "Following": {
+      "title": "Following",
+      "description": "Creators followed by users",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "artistId": { "type": "string" },
+        "followedAt": { "type": "string" }
+      },
+      "required": ["userId", "artistId", "followedAt"]
+    },
+    "SupportTicket": {
+      "title": "SupportTicket",
+      "description": "User feedback or support request ticket",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "subject": { "type": "string" },
+        "message": { "type": "string" },
+        "category": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "userId": { "type": "string" }
+      },
+      "required": ["email", "subject", "message", "category", "status", "createdAt"]
+    },
+    "AnalyticsEvent": {
+      "title": "AnalyticsEvent",
+      "description": "Platform usage analytics event",
+      "type": "object",
+      "properties": {
+        "eventType": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "metadata": { "type": "object" },
+        "timestamp": { "type": "string" },
+        "platform": { "type": "string" }
+      },
+      "required": ["eventType", "userId", "userEmail", "platform"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User accounts"
+    },
+    "/users/{userId}/ad_logs/{logId}": {
+      "schema": "AdLog",
+      "description": "Ad impression logs"
+    },
+    "/artists/{artistId}": {
+      "schema": "Artist",
+      "description": "Artist profiles"
+    },
+    "/songs/{songId}": {
+      "schema": "Song",
+      "description": "Song records collection"
+    },
+    "/playlists/{playlistId}": {
+      "schema": "Playlist",
+      "description": "Playlists collection"
+    },
+    "/likes/{likeId}": {
+      "schema": "Like",
+      "description": "Songs liked/favorited by users"
+    },
+    "/follows/{id}": {
+      "schema": "Follow",
+      "description": "Artists followed by users"
+    },
+    "/albums/{albumId}": {
+      "schema": "Album",
+      "description": "Albums and EPs collection"
+    },
+    "/likedSongs/{id}": {
+      "schema": "LikedSong",
+      "description": "Tracks favorited"
+    },
+    "/recentlyPlayed/{id}": {
+      "schema": "RecentlyPlayed",
+      "description": "Song playback history"
+    },
+    "/following/{id}": {
+      "schema": "Following",
+      "description": "Artists followed"
+    },
+    "/support_tickets/{ticketId}": {
+      "schema": "SupportTicket",
+      "description": "User feedback and help requests"
+    },
+    "/analytics_events/{eventId}": {
+      "schema": "AnalyticsEvent",
+      "description": "App action metrics"
+    }
+  }
+}

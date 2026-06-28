@@ -1,0 +1,48 @@
+stages:
+  - build
+
+variables:
+  # Define directory paths for Gradle and npm caching to speed up builds
+  GRADLE_USER_HOME: "${CI_PROJECT_DIR}/.gradle"
+  npm_config_cache: "${CI_PROJECT_DIR}/.npm"
+
+cache:
+  key: "${CI_COMMIT_REF_SLUG}"
+  paths:
+    - .gradle/wrapper
+    - .gradle/caches
+    - .npm
+    - node_modules
+
+build-android:
+  stage: build
+  image: mobiledevops/android-sdk-image:34-jdk21
+  before_script:
+    # Install Node.js v20 since the build image has SDK and Java but might need a specific Node version
+    - echo "Setting up Node.js..."
+    - curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+    - apt-get update -qq && apt-get install -y -qq nodejs
+    # Ensure gradlew has correct execution permissions
+    - chmod +x android/gradlew
+  script:
+    # 1. Install dependencies
+    - echo "Installing npm dependencies..."
+    - npm ci || npm install
+    
+    # 2. Build web application assets
+    - echo "Building web application..."
+    - npm run build
+    
+    # 3. Sync web assets into the Android native platform
+    - echo "Syncing with Capacitor..."
+    - npx cap sync android
+    
+    # 4. Build the release Android App Bundle (.aab)
+    - echo "Building Android App Bundle (.aab)..."
+    - cd android
+    - ./gradlew bundleRelease --no-daemon --stacktrace
+  artifacts:
+    name: "SoundStream-Release-Bundle-${CI_COMMIT_SHORT_SHA}"
+    paths:
+      - android/app/build/outputs/bundle/release/*.aab
+    expire_in: 1 week

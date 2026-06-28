@@ -1,0 +1,475 @@
+import React, { useState } from "react";
+import { User, Artist } from "../types";
+import { Mail, Lock, User as UserIcon, ShieldAlert, CheckCircle, Radio } from "lucide-react";
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
+import { doc, setDoc, getDoc } from "firebase/firestore";
+import { auth, db } from "../lib/firebase";
+import { analytics } from "../lib/analytics";
+// @ts-ignore
+import logoUrl from "../assets/images/soundstream_logo_1782150206757.jpg";
+
+interface LoginViewProps {
+  onLoginSuccess: (user: User, createdArtist?: Artist) => void;
+  users: User[];
+  onBackToHome: () => void;
+}
+
+export default function LoginView({ onLoginSuccess, users, onBackToHome }: LoginViewProps) {
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("");
+  const [isArtist, setIsArtist] = useState(false);
+  const [imgError, setImgError] = useState(false);
+  
+  // Artist specific fields if they register as artist
+  const [artistName, setArtistName] = useState("");
+  const [artistBio, setArtistBio] = useState("");
+
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    if (!email || !password) {
+      setErrorMessage("Please fill in both email and password fields.");
+      return;
+    }
+
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
+
+      // Retrieve profile
+      const userDocSnap = await getDoc(doc(db, "users", firebaseUser.uid));
+      let matchedUser: User;
+      if (userDocSnap.exists()) {
+        const data = userDocSnap.data();
+        matchedUser = {
+          uid: data.uid || firebaseUser.uid,
+          username: data.username || data.displayName || email.split("@")[0],
+          email: data.email || email,
+          photoURL: data.photoURL || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&q=80",
+          createdAt: data.createdAt || new Date().toISOString(),
+          role: data.role || "listener",
+          id: data.uid || firebaseUser.uid,
+          displayName: data.username || data.displayName || email.split("@")[0]
+        };
+      } else {
+        const usernameVal = email.split("@")[0];
+        const roleVal = (email.includes("artist") || email.includes("neon")) ? "artist" : "listener";
+        matchedUser = {
+          uid: firebaseUser.uid,
+          username: usernameVal,
+          email: email,
+          photoURL: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&q=80",
+          createdAt: new Date().toISOString(),
+          role: roleVal,
+          id: firebaseUser.uid,
+          displayName: usernameVal
+        };
+        await setDoc(doc(db, "users", firebaseUser.uid), {
+          uid: matchedUser.uid || "",
+          username: matchedUser.username || "",
+          email: matchedUser.email || "",
+          photoURL: matchedUser.photoURL || "",
+          createdAt: matchedUser.createdAt || new Date().toISOString(),
+          role: matchedUser.role || "listener"
+        });
+      }
+
+      // Track successful login event
+      analytics.trackEvent("login", matchedUser.uid, matchedUser.email, { method: "email" });
+
+      setSuccessMessage(`Welcome back, ${matchedUser.username || matchedUser.displayName}!`);
+      setTimeout(() => {
+        onLoginSuccess(matchedUser);
+      }, 1000);
+    } catch (err: any) {
+      if (err.code === "auth/user-not-found" || err.code === "auth/invalid-credential") {
+        // Automatically register to optimize demo/testing UX as people enter temporary accounts
+        try {
+          const signUpCred = await createUserWithEmailAndPassword(auth, email, password);
+          const isUserArtist = email.includes("artist") || email.includes("neon");
+          const usernameVal = email.split("@")[0];
+          const newUser: User = {
+            uid: signUpCred.user.uid,
+            username: usernameVal,
+            email: email,
+            photoURL: isUserArtist
+              ? "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&q=80"
+              : "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&q=80",
+            createdAt: new Date().toISOString(),
+            role: isUserArtist ? "artist" : "listener",
+            id: signUpCred.user.uid,
+            displayName: usernameVal
+          };
+          await setDoc(doc(db, "users", signUpCred.user.uid), {
+            uid: newUser.uid || "",
+            username: newUser.username || "",
+            email: newUser.email || "",
+            photoURL: newUser.photoURL || "",
+            createdAt: newUser.createdAt || new Date().toISOString(),
+            role: newUser.role || "listener"
+          });
+          
+          let createdArtist: Artist | undefined = undefined;
+          if (isUserArtist) {
+            createdArtist = {
+              uid: newUser.uid,
+              userId: newUser.uid,
+              artistName: newUser.username.toUpperCase(),
+              bio: "Independent SoundStream music creator.",
+              verified: false,
+              profilePhoto: newUser.photoURL || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&q=80",
+              followersCount: 15,
+              createdAt: newUser.createdAt
+            };
+            await setDoc(doc(db, "artists", newUser.uid), {
+              uid: createdArtist.uid || "",
+              artistName: createdArtist.artistName || "",
+              bio: createdArtist.bio || "",
+              verified: !!createdArtist.verified,
+              profilePhoto: createdArtist.profilePhoto || "",
+              followersCount: createdArtist.followersCount || 0,
+              createdAt: createdArtist.createdAt || new Date().toISOString()
+            });
+          }
+          // Track sign up and artist registration
+          analytics.trackEvent("signup", newUser.uid, newUser.email, { method: "email_auto", role: newUser.role });
+          if (createdArtist) {
+            analytics.trackEvent("artist_registration", createdArtist.uid, newUser.email, { artistName: createdArtist.artistName, auto: true });
+          }
+
+          setSuccessMessage(`Account created! Thank you for joining SoundStream.`);
+          setTimeout(() => {
+            onLoginSuccess(newUser, createdArtist);
+          }, 1000);
+        } catch (signUpErr: any) {
+          setErrorMessage(signUpErr.message || "Failed to authenticate.");
+        }
+      } else {
+        setErrorMessage(err.message || "Failed to log in.");
+      }
+    }
+  };
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    if (!email || !password || !username) {
+      setErrorMessage("Please complete all general registration fields.");
+      return;
+    }
+
+    if (isArtist && !artistName) {
+      setErrorMessage("Please provide an artist name to publish your profile.");
+      return;
+    }
+
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
+
+      const newUser: User = {
+        uid: firebaseUser.uid,
+        username: username,
+        email: email,
+        photoURL: isArtist 
+          ? "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&q=80" 
+          : "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&q=80",
+        createdAt: new Date().toISOString(),
+        role: isArtist ? "artist" : "listener",
+        id: firebaseUser.uid,
+        displayName: username
+      };
+
+      await setDoc(doc(db, "users", firebaseUser.uid), {
+        uid: newUser.uid || "",
+        username: newUser.username || "",
+        email: newUser.email || "",
+        photoURL: newUser.photoURL || "",
+        createdAt: newUser.createdAt || new Date().toISOString(),
+        role: newUser.role || "listener"
+      });
+
+      let createdArtist: Artist | undefined = undefined;
+      if (isArtist) {
+        createdArtist = {
+          uid: firebaseUser.uid,
+          userId: firebaseUser.uid,
+          artistName: artistName,
+          bio: artistBio || `Hello, I'm ${artistName}. Independent artist stream owner on SoundStream.`,
+          verified: false,
+          profilePhoto: newUser.photoURL || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&q=80",
+          followersCount: 0,
+          createdAt: newUser.createdAt
+        };
+        await setDoc(doc(db, "artists", firebaseUser.uid), {
+          uid: createdArtist.uid || "",
+          artistName: createdArtist.artistName || "",
+          bio: createdArtist.bio || "",
+          verified: !!createdArtist.verified,
+          profilePhoto: createdArtist.profilePhoto || "",
+          followersCount: createdArtist.followersCount || 0,
+          createdAt: createdArtist.createdAt || new Date().toISOString()
+        });
+      }
+
+      // Track manual sign up and artist registration
+      analytics.trackEvent("signup", newUser.uid, newUser.email, { method: "email_manual", role: newUser.role });
+      if (createdArtist) {
+        analytics.trackEvent("artist_registration", createdArtist.uid, newUser.email, { artistName: createdArtist.artistName, auto: false });
+      }
+
+      setSuccessMessage(`Account created! Thank you for joining SoundStream.`);
+      setTimeout(() => {
+        onLoginSuccess(newUser, createdArtist);
+      }, 1200);
+    } catch (err: any) {
+      setErrorMessage(err.message || "Sign up failed.");
+    }
+  };
+
+  const autofillUser = (demoEmail: string) => {
+    setEmail(demoEmail);
+    setPassword("password123");
+    setIsSignUp(false);
+  };
+
+
+  return (
+    <div 
+      id="soundstream-login-page"
+      className="max-w-md mx-auto my-12 bg-[#050508] border border-white/5 rounded-3xl p-8 shadow-2xl relative overflow-hidden font-sans text-white"
+    >
+      {/* Decorative ambient background blur */}
+      <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-505/10 rounded-full filter blur-2xl pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500/5 rounded-full filter blur-3xl pointer-events-none" />
+
+      <div className="text-center mb-8 font-sans">
+        {!imgError ? (
+          <img 
+            src={logoUrl} 
+            alt="SoundStream Logo" 
+            referrerPolicy="no-referrer"
+            onError={() => setImgError(true)}
+            className="w-16 h-16 mx-auto mb-4 rounded-2xl object-cover shadow-xl shadow-indigo-600/10 border border-white/10"
+          />
+        ) : (
+          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-xl shadow-indigo-600/10 border border-white/10">
+            <Radio className="w-8 h-8 text-white animate-pulse" />
+          </div>
+        )}
+        <h2 className="text-2xl font-bold font-sans text-white tracking-tight uppercase">
+          {isSignUp ? "Join Independent Wave" : "Access SoundStream"}
+        </h2>
+        <p className="text-xs text-zinc-400 mt-1.5 leading-relaxed font-sans">
+          {isSignUp 
+            ? "Upload your signature sounds, share direct links, and gain real listener traction." 
+            : "Connect with real indie vocalists, discover hidden gems, and build your catalog."}
+        </p>
+      </div>
+
+      {/* Dynamic Alerts */}
+      {errorMessage && (
+        <div id="login-error-alert" className="mb-5 bg-red-950/30 border border-red-500/20 text-red-300 text-xs rounded-xl p-3.5 flex items-center gap-3">
+          <ShieldAlert className="w-5 h-5 text-red-400 shrink-0" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
+
+      {successMessage && (
+        <div id="login-success-alert" className="mb-5 bg-indigo-950/35 border border-indigo-500/20 text-indigo-300 text-xs rounded-xl p-3.5 flex items-center gap-3">
+          <CheckCircle className="w-5 h-5 text-indigo-400 shrink-0" />
+          <span>{successMessage}</span>
+        </div>
+      )}
+
+      {/* Main Forms */}
+      <form onSubmit={isSignUp ? handleSignUp : handleLogin} className="space-y-4">
+        {isSignUp && (
+          <div>
+            <label className="block text-xs font-mono uppercase tracking-wider text-zinc-400 mb-1.5">
+              Username
+            </label>
+            <div className="relative">
+              <UserIcon className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input 
+                id="login-username-input"
+                type="text"
+                placeholder="soundmaster_99"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-11 pr-4 text-sm focus:outline-none focus:border-indigo-500 text-zinc-100 placeholder-zinc-500 transition-colors"
+                required
+              />
+            </div>
+          </div>
+        )}
+
+        <div>
+          <label className="block text-xs font-mono uppercase tracking-wider text-zinc-400 mb-1.5">
+            Email address
+          </label>
+          <div className="relative">
+            <Mail className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input 
+              id="login-email-input"
+              type="email"
+              placeholder="vocalist@stream.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-11 pr-4 text-sm focus:outline-none focus:border-indigo-500 text-zinc-100 placeholder-zinc-500 transition-colors"
+              required
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-mono uppercase tracking-wider text-zinc-400 mb-1.5">
+            Security Password
+          </label>
+          <div className="relative">
+            <Lock className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input 
+              id="login-password-input"
+              type="password"
+              placeholder="••••••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-11 pr-4 text-sm focus:outline-none focus:border-indigo-500 text-zinc-100 placeholder-zinc-500 transition-colors"
+              required
+            />
+          </div>
+        </div>
+
+        {/* Independent Artist Registration Checkbox Options */}
+        {isSignUp && (
+          <div className="bg-white/5 p-4 border border-white/10 rounded-xl space-y-3.5">
+            <div className="flex items-center justify-between">
+              <label htmlFor="artist-signup-toggle" className="text-xs font-sans font-medium text-white cursor-pointer select-none">
+                Register as an Independent Artist
+              </label>
+              <input 
+                id="artist-signup-toggle"
+                type="checkbox"
+                checked={isArtist}
+                onChange={(e) => setIsArtist(e.target.checked)}
+                className="w-4.5 h-4.5 accent-indigo-650 cursor-pointer"
+              />
+            </div>
+            <p className="text-[10px] text-zinc-450 font-sans leading-relaxed">
+              Activating your Independent Artist account grants immediate access to upload high-fidelity MP3 files, set custom cover arts, tag genres, and review follower analytics.
+            </p>
+
+            {isArtist && (
+              <div className="space-y-3 pt-2.5 border-t border-white/5 animate-slide-down">
+                <div>
+                  <label className="block text-[10px] uppercase font-mono tracking-wider text-indigo-400 mb-1">
+                    Independent Artist Name / Project
+                  </label>
+                  <input 
+                    id="artist-project-name"
+                    type="text"
+                    placeholder="e.g. Celestial Wave"
+                    value={artistName}
+                    onChange={(e) => setArtistName(e.target.value)}
+                    className="w-full bg-[#050508] border border-white/10 rounded-lg py-2 px-3 text-xs focus:outline-none focus:border-indigo-500 text-zinc-100 placeholder-zinc-650 transition-colors"
+                    required={isArtist}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase font-mono tracking-wider text-zinc-400 mb-1">
+                    Short Bio / Pitch
+                  </label>
+                  <textarea 
+                    id="artist-project-bio"
+                    placeholder="Tell listeners about your background, modular synthetics, acoustic style, or vision..."
+                    rows={2}
+                    value={artistBio}
+                    onChange={(e) => setArtistBio(e.target.value)}
+                    className="w-full bg-[#050508] border border-white/10 rounded-lg py-2 px-3 text-xs focus:outline-none focus:border-indigo-500 text-zinc-105 placeholder-zinc-650 transition-colors resize-none"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex flex-col gap-2.5 pt-2">
+          {isSignUp ? (
+            <button 
+              id="signup-submit-btn"
+              type="submit"
+              className="w-full bg-indigo-600 text-white font-extrabold text-xs tracking-wider uppercase py-3 rounded-xl hover:bg-indigo-550 transition-colors cursor-pointer shadow-lg shadow-indigo-600/20"
+            >
+              Sign Up
+            </button>
+          ) : (
+            <button 
+              id="login-submit-btn"
+              type="submit"
+              className="w-full bg-indigo-600 text-white font-extrabold text-xs tracking-wider uppercase py-3 rounded-xl hover:bg-indigo-550 transition-colors cursor-pointer shadow-lg shadow-indigo-600/20"
+            >
+              Log In
+            </button>
+          )}
+
+          <button 
+            id="toggle-auth-mode-btn"
+            type="button"
+            onClick={() => {
+              setIsSignUp(!isSignUp);
+              setErrorMessage("");
+            }}
+            className="text-xs text-zinc-400 hover:text-white transition-colors py-1 hover:underline text-center"
+          >
+            {isSignUp ? "Already have an account? Log In" : "Don't have an account? Sign Up now"}
+          </button>
+        </div>
+      </form>
+
+      {/* Pre-configured Demo Accounts */}
+      <div className="mt-8 pt-6 border-t border-white/5">
+        <p className="text-[10px] uppercase font-mono tracking-wider text-zinc-500 mb-2.5 text-center">
+          ⚡ Quick Demo Login Slots
+        </p>
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <button 
+            type="button"
+            onClick={() => autofillUser("neon@soundstream.com")}
+            className="bg-white/5 hover:bg-white/10 text-zinc-300 py-2.5 px-2.5 rounded-xl text-center font-mono border border-white/10 flex flex-col items-center gap-0.5 transition-colors cursor-pointer"
+          >
+            <span className="text-indigo-400 font-bold text-[10px]">Neon Catalyst</span>
+            <span className="text-[9px] text-zinc-500">Artist account</span>
+          </button>
+          
+          <button 
+            type="button"
+            onClick={() => autofillUser("listener@soundstream.com")}
+            className="bg-white/5 hover:bg-white/10 text-zinc-300 py-2.5 px-2.5 rounded-xl text-center font-mono border border-white/10 flex flex-col items-center gap-0.5 transition-colors cursor-pointer"
+          >
+            <span className="text-pink-400 font-bold text-[10px]">MusicLover99</span>
+            <span className="text-[9px] text-zinc-500">Listener account</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-6 flex justify-center">
+        <button 
+          type="button" 
+          onClick={onBackToHome}
+          className="text-xs text-zinc-500 hover:text-indigo-405 transition-colors font-sans hover:underline"
+        >
+          ← Browse music without logging in
+        </button>
+      </div>
+    </div>
+  );
+}
