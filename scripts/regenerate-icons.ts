@@ -13,14 +13,31 @@ const densities = [
   { name: "xxxhdpi", scale: 4.0, iconSize: 192, fgSize: 432 }
 ];
 
-async function generateIcons() {
-  console.log("Starting launcher icon regeneration from:", sourceLogoPath);
+const splashScreens = [
+  { dir: "drawable", width: 1080, height: 1920 },
+  { dir: "drawable-land-hdpi", width: 800, height: 480 },
+  { dir: "drawable-land-mdpi", width: 480, height: 320 },
+  { dir: "drawable-land-xhdpi", width: 1280, height: 720 },
+  { dir: "drawable-land-xxhdpi", width: 1920, height: 1080 },
+  { dir: "drawable-land-xxxhdpi", width: 2560, height: 1440 },
+  { dir: "drawable-port-hdpi", width: 480, height: 800 },
+  { dir: "drawable-port-mdpi", width: 320, height: 480 },
+  { dir: "drawable-port-xhdpi", width: 720, height: 1280 },
+  { dir: "drawable-port-xxhdpi", width: 1080, height: 1920 },
+  { dir: "drawable-port-xxxhdpi", width: 1440, height: 2560 }
+];
+
+const backgroundColor = { r: 18, g: 18, b: 20, alpha: 255 }; // #121214 (aesthetic dark space color)
+
+async function generateIconsAndSplashes() {
+  console.log("Starting launcher icon and splash screen regeneration from:", sourceLogoPath);
 
   if (!fs.existsSync(sourceLogoPath)) {
     console.error("❌ Source logo file does not exist at:", sourceLogoPath);
     process.exit(1);
   }
 
+  // 1. Generate Icons
   for (const density of densities) {
     const dirPath = path.join(resDir, `mipmap-${density.name}`);
     if (!fs.existsSync(dirPath)) {
@@ -53,8 +70,6 @@ async function generateIcons() {
       .toFile(roundPath);
 
     // 3. Adaptive Foreground Launcher Icon: ic_launcher_foreground.png
-    // The standard Android adaptive foreground is 108dp x 108dp.
-    // Safe zone is the inner 72dp. So the logo itself should occupy ~66.7% of the total size.
     const fgPath = path.join(dirPath, "ic_launcher_foreground.png");
     const logoSize = Math.round(density.fgSize * 0.667);
     console.log(`Generating: ${fgPath} (${density.fgSize}x${density.fgSize}, logo centered at ${logoSize}x${logoSize})`);
@@ -80,10 +95,45 @@ async function generateIcons() {
       .toFile(fgPath);
   }
 
-  console.log("✨ All launcher icons successfully regenerated!");
+  // 2. Generate Splash Screens
+  for (const splash of splashScreens) {
+    const dirPath = path.join(resDir, splash.dir);
+    if (!fs.existsSync(dirPath)) {
+      console.log(`Creating directory: ${dirPath}`);
+      fs.mkdirSync(dirPath, { recursive: true });
+    }
+
+    const splashPath = path.join(dirPath, "splash.png");
+    const minDim = Math.min(splash.width, splash.height);
+    const logoSize = Math.round(minDim * 0.35); // 35% safe centered logo size
+    
+    console.log(`Generating Splash: ${splashPath} (${splash.width}x${splash.height}), Logo Size: ${logoSize}x${logoSize}`);
+    
+    const logoResized = await sharp(sourceLogoPath)
+      .resize(logoSize, logoSize)
+      .toBuffer();
+
+    await sharp({
+      create: {
+        width: splash.width,
+        height: splash.height,
+        channels: 4,
+        background: backgroundColor
+      }
+    })
+      .composite([{
+        input: logoResized,
+        top: Math.round((splash.height - logoSize) / 2),
+        left: Math.round((splash.width - logoSize) / 2)
+      }])
+      .png({ compressionLevel: 9 })
+      .toFile(splashPath);
+  }
+
+  console.log("✨ All launcher icons and splash screens successfully regenerated!");
 }
 
-generateIcons().catch(err => {
-  console.error("❌ Icon generation failed:", err);
+generateIconsAndSplashes().catch(err => {
+  console.error("❌ Icon and splash regeneration failed:", err);
   process.exit(1);
 });

@@ -1,48 +1,38 @@
+image: cirruslabs/android-sdk:34
+
+variables:
+  # Disable the Gradle daemon to save memory in CI environments
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - .npm/
+    - node_modules/
+    - .gradle/wrapper/
+    - .gradle/caches/
+
 stages:
   - build
 
-variables:
-  # Define directory paths for Gradle and npm caching to speed up builds
-  GRADLE_USER_HOME: "${CI_PROJECT_DIR}/.gradle"
-  npm_config_cache: "${CI_PROJECT_DIR}/.npm"
-
-cache:
-  key: "${CI_COMMIT_REF_SLUG}"
-  paths:
-    - .gradle/wrapper
-    - .gradle/caches
-    - .npm
-    - node_modules
-
-build-android:
+build_android:
   stage: build
-  image: mobiledevops/android-sdk-image:34-jdk21
   before_script:
-    # Install Node.js v20 since the build image has SDK and Java but might need a specific Node version
-    - echo "Setting up Node.js..."
-    - curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-    - apt-get update -qq && apt-get install -y -qq nodejs
-    # Ensure gradlew has correct execution permissions
-    - chmod +x android/gradlew
+    - export GRADLE_USER_HOME=$(pwd)/.gradle
+    # Install Node.js (V22) to build web assets and run scripts
+    - apt-get update -yq && apt-get install -yq curl
+    - curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+    - apt-get install -yq nodejs
+    # Verify toolchain versions
+    - node --version
+    - npm --version
+    - java -version
+    # Install Node dependencies using cache
+    - npm ci --cache .npm --prefer-offline
   script:
-    # 1. Install dependencies
-    - echo "Installing npm dependencies..."
-    - npm ci || npm install
-    
-    # 2. Build web application assets
-    - echo "Building web application..."
-    - npm run build
-    
-    # 3. Sync web assets into the Android native platform
-    - echo "Syncing with Capacitor..."
-    - npx cap sync android
-    
-    # 4. Build the release Android App Bundle (.aab)
-    - echo "Building Android App Bundle (.aab)..."
-    - cd android
-    - ./gradlew bundleRelease --no-daemon --stacktrace
+    - npm run build:android
   artifacts:
-    name: "SoundStream-Release-Bundle-${CI_COMMIT_SHORT_SHA}"
+    name: "android-release-bundle"
     paths:
-      - android/app/build/outputs/bundle/release/*.aab
+      - public/app-release.aab
     expire_in: 1 week

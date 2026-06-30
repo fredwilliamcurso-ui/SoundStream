@@ -64,13 +64,9 @@ async function main() {
   // 4. Ensure we are on branch 'main'
   console.log("Checking and switching to branch 'main'...");
   try {
-    runCmd("git checkout -b main");
-  } catch (e) {
-    try {
-      runCmd("git checkout main");
-    } catch (checkoutErr: any) {
-      console.log("Branch checkout info:", checkoutErr.message);
-    }
+    runCmd("git checkout -B main");
+  } catch (checkoutErr: any) {
+    console.log("Branch checkout info:", checkoutErr.message);
   }
 
   // 5. Stage files (ignoring anything in .gitignore)
@@ -84,7 +80,7 @@ async function main() {
     console.log("✨ No changes to commit.");
   } else {
     console.log("Changes found. Creating commit...");
-    runCmd('git commit -m "fix: Repair Android resource compilation errors by regenerating launcher icons from source logo in uncorrupted 32-bit PNG format"');
+    runCmd('git commit -m "chore: Restore project to yesterday\'s stable commit and integrate Audiomark production Android build baseline"');
   }
 
   // 7. Push to GitHub
