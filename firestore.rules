@@ -1,0 +1,187 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Catch-all default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Checks if current user has 'admin' role in users collection OR has the bootstrapped email
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'fredwilliamcurso@gmail.com' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAll(['role']) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAll(['email']) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.email == 'fredwilliamcurso@gmail.com')
+      );
+    }
+
+    // Check if user is suspended
+    function isSuspended() {
+      return isSignedIn() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAll(['isSuspended']) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isSuspended == true;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if true; // Publicly readable for profiles and stats
+      allow create: if isOwner(userId) && (
+        (request.resource.data.keys().hasAll(['email']) && request.resource.data.email == 'fredwilliamcurso@gmail.com') || (
+          (!request.resource.data.keys().hasAll(['role']) || request.resource.data.role != 'admin') && 
+          (!request.resource.data.keys().hasAll(['isSuspended']) || request.resource.data.isSuspended != true)
+        )
+      );
+      
+      allow update: if request.auth.token.email == 'fredwilliamcurso@gmail.com' || isAdmin() || (
+        isOwner(userId) && (
+          (resource.data.keys().hasAll(['email']) && resource.data.email == 'fredwilliamcurso@gmail.com') ||
+          (request.resource.data.keys().hasAll(['email']) && request.resource.data.email == 'fredwilliamcurso@gmail.com') ||
+          (
+            !isSuspended() &&
+            (!request.resource.data.keys().hasAll(['role']) || request.resource.data.role == resource.data.role) &&
+            (!request.resource.data.keys().hasAll(['isSuspended']) || request.resource.data.isSuspended == resource.data.isSuspended)
+          )
+        )
+      );
+      
+      allow delete: if isAdmin();
+
+      // Ad logs nested collection
+      match /ad_logs/{logId} {
+        allow read: if isAdmin() || isOwner(userId);
+        allow create: if isOwner(userId) && !isSuspended();
+      }
+    }
+
+    // Artists collection
+    match /artists/{artistId} {
+      allow read: if true;
+      allow create: if isAdmin() || (
+        isOwner(artistId) && 
+        !isSuspended() &&
+        request.resource.data.verified == false &&
+        (!request.resource.data.keys().hasAll(['isSuspended']) || request.resource.data.isSuspended != true) &&
+        (!request.resource.data.keys().hasAll(['isFeatured']) || request.resource.data.isFeatured != true)
+      );
+      
+      allow update: if isAdmin() || (
+        isOwner(artistId) && 
+        !isSuspended() &&
+        request.resource.data.verified == resource.data.verified &&
+        (!resource.data.keys().hasAll(['isSuspended']) || request.resource.data.isSuspended == resource.data.isSuspended) &&
+        (!resource.data.keys().hasAll(['isFeatured']) || request.resource.data.isFeatured == resource.data.isFeatured) &&
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['artistName', 'bio', 'profilePhoto', 'followersCount']) ||
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followersCount'])
+        )
+      );
+      
+      allow delete: if isAdmin();
+    }
+
+    // Songs collection
+    match /songs/{songId} {
+      allow read: if true;
+      allow create: if isAdmin() || (
+        isSignedIn() && 
+        !isSuspended() &&
+        request.resource.data.artistId == request.auth.uid &&
+        (!request.resource.data.keys().hasAll(['isFeatured']) || request.resource.data.isFeatured != true) &&
+        (!request.resource.data.keys().hasAll(['isModerated']) || request.resource.data.isModerated != true)
+      );
+      
+      allow update: if isAdmin() || (
+        !isSuspended() && (
+          // Anyone can increment playCount or likes
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['playCount', 'likes']) ||
+          (
+            isSignedIn() && 
+            resource.data.artistId == request.auth.uid &&
+            request.resource.data.isFeatured == resource.data.isFeatured &&
+            request.resource.data.isModerated == resource.data.isModerated
+          )
+        )
+      );
+      
+      allow delete: if isAdmin() || (isSignedIn() && !isSuspended() && resource.data.artistId == request.auth.uid);
+    }
+
+    // Playlists collection
+    match /playlists/{playlistId} {
+      allow read: if true;
+      allow create: if isAdmin() || (isSignedIn() && !isSuspended() && request.resource.data.userId == request.auth.uid);
+      allow update, delete: if isAdmin() || (isSignedIn() && !isSuspended() && resource.data.userId == request.auth.uid);
+    }
+
+    // Likes collection
+    match /likes/{likeId} {
+      allow read: if true;
+      allow create, delete: if isAdmin() || (isSignedIn() && !isSuspended() && request.resource.data.userId == request.auth.uid);
+    }
+
+    // Follows collection
+    match /follows/{id} {
+      allow read: if true;
+      allow create, delete: if isAdmin() || (isSignedIn() && !isSuspended() && request.resource.data.userId == request.auth.uid);
+    }
+
+    // Albums collection
+    match /albums/{albumId} {
+      allow read: if true;
+      allow create: if isAdmin() || (isSignedIn() && !isSuspended() && request.resource.data.artistId == request.auth.uid);
+      allow update, delete: if isAdmin() || (isSignedIn() && !isSuspended() && request.resource.data.artistId == request.auth.uid);
+    }
+
+    // likedSongs collection
+    match /likedSongs/{id} {
+      allow read: if true;
+      allow create, delete: if isAdmin() || (isSignedIn() && !isSuspended() && request.resource.data.userId == request.auth.uid);
+    }
+
+    // recentlyPlayed collection
+    match /recentlyPlayed/{id} {
+      allow read: if true;
+      allow create: if isAdmin() || (isSignedIn() && !isSuspended() && request.resource.data.userId == request.auth.uid);
+      allow update, delete: if isAdmin() || (isSignedIn() && !isSuspended() && request.resource.data.userId == request.auth.uid);
+    }
+
+    // following collection
+    match /following/{id} {
+      allow read: if true;
+      allow create, delete: if isAdmin() || (isSignedIn() && !isSuspended() && request.resource.data.userId == request.auth.uid);
+    }
+
+    // playlistSongs collection
+    match /playlistSongs/{id} {
+      allow read: if true;
+      allow create: if isAdmin() || (isSignedIn() && !isSuspended());
+      allow update, delete: if isAdmin() || (isSignedIn() && !isSuspended());
+    }
+
+    // Support tickets collection
+    match /support_tickets/{ticketId} {
+      allow read, update, delete: if isAdmin();
+      allow create: if true; // Accessible to both signed in users and guests
+    }
+
+    // Analytics events collection
+    match /analytics_events/{eventId} {
+      allow read, update, delete: if isAdmin();
+      allow create: if true; // Allow anonymous and signed-in events logging
+    }
+  }
+}
