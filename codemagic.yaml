@@ -48,6 +48,7 @@ workflows:
         script: |
           cd android
           chmod +x gradlew
-          ./gradlew bundleRelease --no-daemon --stacktrace
+          ./gradlew bundleRelease assembleRelease --no-daemon --stacktrace
     artifacts:
       - android/app/build/outputs/bundle/release/*.aab
+      - android/app/build/outputs/apk/release/*.apk
