@@ -21,6 +21,27 @@ workflows:
       - name: Sync with Capacitor
         script: |
           npx cap sync android
+      - name: Verify environment variables
+        script: |
+          echo "===================================================="
+          echo "🔍 VERIFYING SIGNING ENVIRONMENT VARIABLES"
+          echo "===================================================="
+          if [ -z "$SOUNDSTREAM_KEYSTORE_PASSWORD" ]; then
+            echo "⚠️ SOUNDSTREAM_KEYSTORE_PASSWORD is EMPTY or NOT defined!"
+          else
+            echo "✅ SOUNDSTREAM_KEYSTORE_PASSWORD is defined (length: ${#SOUNDSTREAM_KEYSTORE_PASSWORD} chars)"
+          fi
+          if [ -z "$SOUNDSTREAM_KEY_ALIAS" ]; then
+            echo "⚠️ SOUNDSTREAM_KEY_ALIAS is EMPTY or NOT defined!"
+          else
+            echo "✅ SOUNDSTREAM_KEY_ALIAS is defined: $SOUNDSTREAM_KEY_ALIAS"
+          fi
+          if [ -z "$SOUNDSTREAM_KEY_PASSWORD" ]; then
+            echo "⚠️ SOUNDSTREAM_KEY_PASSWORD is EMPTY or NOT defined!"
+          else
+            echo "✅ SOUNDSTREAM_KEY_PASSWORD is defined (length: ${#SOUNDSTREAM_KEY_PASSWORD} chars)"
+          fi
+          echo "===================================================="
       - name: Build Android release using Gradle
         script: |
           cd android
