@@ -1,7 +1,10 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Song, Artist, Album } from "../types";
-import { Play, TrendingUp, Music, Star, Heart, Share2, Layers, Clock, Video } from "lucide-react";
+import { Play, TrendingUp, Music, Star, Heart, Share2, Layers, Clock, Video, Download, Smartphone, Check, Radio, Eye, Calendar } from "lucide-react";
 import { motion } from "motion/react";
+import { analytics } from "../lib/analytics";
+import { collection, query, orderBy, onSnapshot, where, getDoc, doc, updateDoc } from "firebase/firestore";
+import { db, auth } from "../lib/firebase";
 
 interface HomeDashboardProps {
   songs: Song[];
@@ -21,6 +24,14 @@ interface HomeDashboardProps {
   recentlyPlayed?: { songId: string; playedAt: string }[];
   onViewRecentlyPlayedAll?: () => void;
   onViewTrendingAll?: () => void;
+  isInstallable?: boolean;
+  isAppInstalled?: boolean;
+  onInstall?: () => void;
+  isAndroid?: boolean;
+  isIOS?: boolean;
+  onShowIOSPrompt?: () => void;
+  followingArtists?: string[];
+  setCurrentTab?: (tab: string) => void;
 }
 
 export default function HomeDashboard({
@@ -40,8 +51,95 @@ export default function HomeDashboard({
   onShareArtist,
   recentlyPlayed = [],
   onViewRecentlyPlayedAll,
-  onViewTrendingAll
+  onViewTrendingAll,
+  isInstallable = false,
+  isAppInstalled = false,
+  onInstall,
+  isAndroid = false,
+  isIOS = false,
+  onShowIOSPrompt,
+  followingArtists = [],
+  setCurrentTab
 }: HomeDashboardProps) {
+
+  // Load live streams for home page discovery
+  const [liveStreams, setLiveStreams] = useState<any[]>([]);
+  useEffect(() => {
+    const q = query(collection(db, "liveStreams"), orderBy("createdAt", "desc"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setLiveStreams(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      console.warn("Failed to subscribe to live streams:", error);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Load active ad campaigns for delivery
+  const [activeAds, setActiveAds] = useState<any[]>([]);
+  useEffect(() => {
+    const q = query(collection(db, "ads_campaigns"), where("status", "==", "active"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const ads = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setActiveAds(ads);
+      // Log impression for all loaded active ads
+      ads.forEach(ad => {
+        handleAdImpression(ad);
+      });
+    }, (error) => {
+      console.warn("Failed to subscribe to active ads:", error);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleAdClick = async (ad: any) => {
+    if (ad.creative?.destinationUrl) {
+      window.open(ad.creative.destinationUrl, "_blank");
+    }
+    if (!auth.currentUser) return; // Guard against permission denied for guests
+    try {
+      const dateStr = new Date().toISOString().split("T")[0];
+      const reportId = `${ad.id}_${dateStr}`;
+      const reportRef = doc(db, "ads_reports", reportId);
+      const reportSnap = await getDoc(reportRef);
+      if (reportSnap.exists()) {
+        const d = reportSnap.data();
+        await updateDoc(reportRef, {
+          clicks: (d.clicks || 0) + 1,
+          conversions: (d.conversions || 0) + 1,
+          cost: (d.cost || 0) + 0.25
+        });
+      }
+      const campaignRef = doc(db, "ads_campaigns", ad.id);
+      const campaignSnap = await getDoc(campaignRef);
+      if (campaignSnap.exists()) {
+        const d = campaignSnap.data();
+        await updateDoc(campaignRef, {
+          spent: (d.spent || 0) + 0.25
+        });
+      }
+    } catch (e) {
+      console.error("Ad click stat logging failed:", e);
+    }
+  };
+
+  const handleAdImpression = async (ad: any) => {
+    if (!auth.currentUser) return; // Guard against permission denied for guests
+    try {
+      const dateStr = new Date().toISOString().split("T")[0];
+      const reportId = `${ad.id}_${dateStr}`;
+      const reportRef = doc(db, "ads_reports", reportId);
+      const reportSnap = await getDoc(reportRef);
+      if (reportSnap.exists()) {
+        const d = reportSnap.data();
+        await updateDoc(reportRef, {
+          impressions: (d.impressions || 0) + 1,
+          reach: (d.reach || 0) + 1
+        });
+      }
+    } catch (e) {
+      console.error("Ad impression logging failed:", e);
+    }
+  };
 
   const trendingSongs = [...songs]
     .sort((a, b) => b.playCount - a.playCount)
@@ -174,6 +272,156 @@ export default function HomeDashboard({
         )}
       </div>
 
+      {/* SoundStream Immersive Ad delivery */}
+      {activeAds.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 border-b border-white/5 pb-2">
+            <span className="bg-indigo-600/15 border border-indigo-500/25 rounded-full px-2.5 py-0.5 text-[9px] font-bold text-indigo-400 font-mono tracking-widest uppercase">SPONSORED PLATFORM SPOTLIGHT</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {activeAds.slice(0, 4).map(ad => (
+              <div 
+                key={ad.id}
+                onClick={() => handleAdClick(ad)}
+                className="bg-[#0b0c10]/80 border border-[#6366f1]/10 rounded-2xl p-4 flex gap-4 hover:border-[#6366f1]/30 hover:bg-[#0b0c10] transition-all cursor-pointer relative group"
+              >
+                {ad.creative?.mediaUrl && (
+                  <div className="w-20 h-20 shrink-0 overflow-hidden rounded-xl border border-white/5 relative">
+                    <img 
+                      src={ad.creative.mediaUrl} 
+                      alt={ad.creative.title} 
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="text-xs font-bold text-white truncate group-hover:text-indigo-400 transition-colors">
+                        {ad.creative?.title || ad.name}
+                      </h4>
+                      <span className="text-[8px] font-black text-indigo-400 bg-indigo-950/60 border border-indigo-900/30 px-1.5 py-px rounded uppercase tracking-wider scale-90">Ad</span>
+                    </div>
+                    <p className="text-[10px] text-zinc-400 mt-1 line-clamp-2 leading-relaxed">
+                      {ad.creative?.description}
+                    </p>
+                  </div>
+                  {ad.creative?.destinationUrl && (
+                    <span className="text-[9px] font-medium text-indigo-400 flex items-center gap-1 mt-2 hover:underline truncate">
+                      {ad.creative.destinationUrl.replace("https://", "").replace("http://", "").split("/")[0]}
+                      <svg className="w-3 h-3 text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                      </svg>
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* SoundStreamy App Center Banner */}
+      <div 
+        id="app-center-section" 
+        className="rounded-3xl p-6 md:p-8 bg-[#16161c]/45 border border-white/5 relative overflow-hidden backdrop-blur-md shadow-xl"
+      >
+        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/5 rounded-full filter blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-600/5 rounded-full filter blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-6">
+          <div className="max-w-xl text-center lg:text-left space-y-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-500/10 border border-purple-500/25 rounded-full text-[10px] font-bold tracking-widest text-purple-300 uppercase font-mono">
+              <Smartphone className="w-3 h-3 text-purple-400" />
+              SoundStreamy App Center
+            </span>
+            <h3 className="text-2xl font-black tracking-tight text-white uppercase">
+              Take SoundStreamy Everywhere
+            </h3>
+            <p className="text-xs md:text-sm text-zinc-400 leading-relaxed">
+              Listen to high-fidelity lossless independent tracks, watch raw music videos, and sync your favorite artists right from your devices. Try our native Android app or install the ultra-lightweight Web App.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full lg:w-auto shrink-0">
+            {/* Card 1: Direct Android APK */}
+            <div className="bg-[#111116] border border-white/5 rounded-2xl p-5 flex flex-col justify-between items-center text-center hover:border-purple-500/20 transition-all">
+              <div className="mb-4">
+                <div className="w-10 h-10 rounded-full bg-purple-600/10 border border-purple-500/20 text-purple-400 flex items-center justify-center mx-auto mb-2">
+                  <Download className="w-5 h-5" />
+                </div>
+                <h4 className="font-bold text-xs text-white uppercase tracking-wider">Android Native App</h4>
+                <p className="text-[10px] text-zinc-500 mt-1 max-w-[180px]">
+                  Download our official, pre-configured direct installation APK.
+                </p>
+              </div>
+
+              <a
+                href="/Soundstream.apk"
+                download="Soundstream.apk"
+                onClick={() => {
+                  analytics.trackEvent("apk_download", "anonymous", "anonymous", {
+                    fileName: "Soundstream.apk",
+                    location: "home_dashboard_promo"
+                  });
+                }}
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-sans font-bold text-xs rounded-xl shadow-lg shadow-indigo-500/10 hover:shadow-indigo-500/25 transition-all text-center no-underline border-none cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5 text-white" />
+                <span>Download APK</span>
+              </a>
+              <span className="text-[9px] font-mono text-zinc-650 mt-2">
+                Size: ~25.4 MB • v1.0.2
+              </span>
+            </div>
+
+            {/* Card 2: PWA Web App */}
+            <div className="bg-[#111116] border border-white/5 rounded-2xl p-5 flex flex-col justify-between items-center text-center hover:border-indigo-500/20 transition-all">
+              <div className="mb-4">
+                <div className="w-10 h-10 rounded-full bg-indigo-600/10 border border-indigo-500/20 text-indigo-450 flex items-center justify-center mx-auto mb-2">
+                  <Smartphone className="w-5 h-5" />
+                </div>
+                <h4 className="font-bold text-xs text-white uppercase tracking-wider">Web App (PWA)</h4>
+                <p className="text-[10px] text-zinc-500 mt-1 max-w-[180px]">
+                  Install instantly on Chrome, Safari, or Edge without files.
+                </p>
+              </div>
+
+              {isAppInstalled ? (
+                <div className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-450 font-sans font-bold text-xs rounded-xl">
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Installed &amp; Active</span>
+                </div>
+              ) : isInstallable ? (
+                <button
+                  onClick={onInstall}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-sans font-bold text-xs rounded-xl shadow-lg shadow-indigo-500/10 hover:shadow-indigo-500/25 transition-all cursor-pointer border-none"
+                >
+                  <Smartphone className="w-3.5 h-3.5 text-white" />
+                  <span>Install App</span>
+                </button>
+              ) : isIOS ? (
+                <button
+                  onClick={onShowIOSPrompt}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-sans font-bold text-xs rounded-xl shadow-lg shadow-indigo-500/10 hover:shadow-indigo-500/25 transition-all cursor-pointer border-none"
+                >
+                  <Smartphone className="w-3.5 h-3.5 text-white" />
+                  <span>Install on iOS</span>
+                </button>
+              ) : (
+                <div className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-white/5 text-zinc-400 font-sans font-bold text-xs rounded-xl">
+                  <span>PWA Supported</span>
+                </div>
+              )}
+              <span className="text-[9px] font-mono text-zinc-650 mt-2">
+                Instant • Offline Support
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Recently Played Section */}
       {recentlyPlayedSongs.length > 0 && (
         <div id="home-recently-played" className="space-y-4">
@@ -242,6 +490,8 @@ export default function HomeDashboard({
           </div>
         </div>
       )}
+
+
 
       {/* 2. Quick Genre Filtering System */}
       <div id="genre-filtering" className="space-y-4">
@@ -551,67 +801,7 @@ export default function HomeDashboard({
           </div>
         </div>
 
-        {/* 4. Trending Music Videos */}
-        <div id="trending-videos-section" className="space-y-4 pt-6 border-t border-white/5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Video className="w-5 h-5 text-pink-500 animate-pulse" />
-              <h3 className="font-sans font-bold text-lg text-white uppercase tracking-tight">Trending Music Videos</h3>
-            </div>
-            <span className="text-xs text-zinc-550 font-mono hidden sm:inline uppercase">Independent Cinema releases</span>
-          </div>
 
-          {trendingVideos.length === 0 ? (
-            <div className="py-12 text-center text-zinc-500 border border-dashed border-white/5 rounded-2xl bg-zinc-950/20">
-              <Video className="w-7 h-7 text-pink-500/30 mx-auto mb-2" />
-              <p className="text-zinc-400 font-semibold text-xs uppercase tracking-wider font-mono">No Music Videos published yet</p>
-              <p className="text-[10px] text-zinc-500 mt-1">Creators can publish MP4 videos from the Upload dashboard!</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              {trendingVideos.map((video) => {
-                const isPlayingThis = currentPlayingSong?.id === video.id;
-                return (
-                  <div
-                    key={video.id}
-                    onClick={() => onSelectSong(video)}
-                    className={`bg-white/[0.02] border rounded-2xl p-3 hover:bg-white/5 transition-all group cursor-pointer relative flex flex-col justify-between ${
-                      isPlayingThis ? "border-pink-500 ring-1 ring-pink-550/15" : "border-white/5 hover:border-white/10"
-                    }`}
-                  >
-                    <div className="space-y-3">
-                      <div className="relative aspect-video overflow-hidden rounded-xl border border-white/5 bg-zinc-950">
-                        <img
-                          src={video.coverUrl}
-                          alt={video.title}
-                          className="w-full h-full object-cover rounded-xl transition-transform duration-300 group-hover:scale-105"
-                          referrerPolicy="no-referrer"
-                        />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <div className="w-10 h-10 bg-pink-500 text-white rounded-full flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition-all">
-                            <Play className="w-4 h-4 fill-white text-white ml-0.5" />
-                          </div>
-                        </div>
-                        <span className="absolute bottom-2 right-2 bg-black/75 backdrop-blur-sm text-[8px] font-mono font-bold text-zinc-300 px-2 py-0.5 rounded uppercase border border-white/5">
-                          MP4 VIDEO
-                        </span>
-                      </div>
-
-                      <div>
-                        <h4 className="font-bold text-xs truncate text-zinc-150 group-hover:text-pink-400 transition-colors uppercase tracking-tight">
-                          {video.title}
-                        </h4>
-                        <p className="font-mono text-[9.5px] text-zinc-500 mt-0.5 truncate uppercase">
-                          {video.artistName} • {video.playCount.toLocaleString()} plays
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
 
       </div>
     </div>

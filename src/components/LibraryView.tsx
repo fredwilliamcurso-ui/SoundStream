@@ -83,6 +83,39 @@ export default function LibraryView({
     return "Single";
   };
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<"trending" | "new" | "plays" | "likes" | "recent">("trending");
+
+  const getSortedAllSongs = () => {
+    let filtered = songs.filter(s => (s as any).isPublic !== false);
+    const query = searchQuery.toLowerCase().trim();
+    if (query) {
+      filtered = filtered.filter(song => {
+        const titleMatch = song.title.toLowerCase().includes(query);
+        const artistMatch = song.artistName.toLowerCase().includes(query);
+        const genreMatch = song.genre?.toLowerCase().includes(query);
+        const albumMatch = getSongAlbumName(song).toLowerCase().includes(query);
+        return titleMatch || artistMatch || genreMatch || albumMatch;
+      });
+    }
+
+    return [...filtered].sort((a, b) => {
+      if (sortBy === "trending") {
+        const scoreA = (a.playCount || 0) * 1.5 + (a.likes || 0) * 2;
+        const scoreB = (b.playCount || 0) * 1.5 + (b.likes || 0) * 2;
+        return scoreB - scoreA;
+      }
+      if (sortBy === "new" || sortBy === "recent") {
+        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+      }
+      if (sortBy === "plays") {
+        return (b.playCount || 0) - (a.playCount || 0);
+      }
+      if (sortBy === "likes") {
+        return (b.likes || 0) - (a.likes || 0);
+      }
+      return 0;
+    });
+  };
 
   // Filter lists based on states
   const likedSongs = songs.filter(s => favorites.includes(s.id));
@@ -131,6 +164,16 @@ export default function LibraryView({
 
   // Bento filter cards config
   const bentoCards = [
+    {
+      id: "all_songs",
+      title: "All Songs",
+      subtitle: "Full SoundStream Catalog",
+      count: `${songs.filter(s => (s as any).isPublic !== false).length} track${songs.filter(s => (s as any).isPublic !== false).length !== 1 ? "s" : ""}`,
+      icon: <Music className="w-5 h-5 text-indigo-400" />,
+      coverUrl: songs.filter(s => (s as any).isPublic !== false)[0]?.coverUrl,
+      bgGradient: "from-indigo-500/20 to-indigo-500/5 hover:border-indigo-500/30",
+      activeClass: "border-indigo-500/50 bg-indigo-500/10 text-indigo-400"
+    },
     {
       id: "liked",
       title: "Liked Songs",
@@ -293,11 +336,13 @@ export default function LibraryView({
           <div className="mb-6 flex flex-col sm:flex-row gap-3 items-center justify-between border-b border-white/5 pb-5">
             <div className="flex flex-wrap items-center gap-3">
               <h3 className="font-sans font-bold text-base text-zinc-100 flex items-center gap-2 tracking-tight uppercase">
+                {activeSection === "all_songs" && <Music className="w-5 h-5 text-indigo-500" />}
                 {activeSection === "liked" && <Heart className="w-5 h-5 text-pink-500" />}
                 {activeSection === "albums" && <Disc className="w-5 h-5 text-amber-500" />}
                 {activeSection === "following" && <Users className="w-5 h-5 text-teal-500" />}
                 {activeSection === "recent" && <Clock className="w-5 h-5 text-cyan-500" />}
                 
+                {activeSection === "all_songs" && `All Songs Catalog (${songs.filter(s => (s as any).isPublic !== false).length})`}
                 {activeSection === "liked" && `Liked Songs (${likedSongs.length})`}
                 {activeSection === "albums" && `Albums & EPs (${albums.length})`}
                 {activeSection === "following" && `Following Creators (${followedCreators.length})`}
@@ -315,18 +360,37 @@ export default function LibraryView({
               )}
             </div>
 
-            {/* Quick Filter Search Input */}
-            <div className="relative w-full sm:w-64">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-3.5 w-3.5 text-zinc-500" />
-              </span>
-              <input
-                type="text"
-                placeholder={`Filter ${activeSection}...`}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-black/40 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:border-indigo-500 text-zinc-150 placeholder-zinc-500 transition-colors"
-              />
+            {/* Quick Filter Search Input & Sort Selector */}
+            <div className="flex flex-col sm:flex-row gap-2.5 w-full sm:w-auto items-stretch sm:items-center">
+              {activeSection === "all_songs" && (
+                <div className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-xl px-3 py-1.5 shrink-0">
+                  <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-wider font-bold">Sort</span>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as any)}
+                    className="bg-transparent text-xs text-zinc-200 focus:outline-none cursor-pointer font-sans font-bold pr-1"
+                  >
+                    <option value="trending" className="bg-zinc-950 text-white">Trending 🔥</option>
+                    <option value="new" className="bg-zinc-950 text-white">New Releases 🆕</option>
+                    <option value="plays" className="bg-zinc-950 text-white">Most Played 🎧</option>
+                    <option value="likes" className="bg-zinc-950 text-white">Most Liked ❤️</option>
+                    <option value="recent" className="bg-zinc-950 text-white">Recently Added 📅</option>
+                  </select>
+                </div>
+              )}
+
+              <div className="relative w-full sm:w-64">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search className="h-3.5 w-3.5 text-zinc-500" />
+                </span>
+                <input
+                  type="text"
+                  placeholder={activeSection === "all_songs" ? "Search title, artist, album, genre..." : `Filter ${activeSection}...`}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-black/40 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:border-indigo-500 text-zinc-150 placeholder-zinc-500 transition-colors"
+                />
+              </div>
             </div>
           </div>
         )}
@@ -341,6 +405,91 @@ export default function LibraryView({
             className="space-y-4"
           >
             
+            {/* ALL SONGS CATALOG VIEW */}
+            {activeSection === "all_songs" && (
+              <div className="space-y-3">
+                {getSortedAllSongs().length > 0 ? (
+                  <div className="space-y-2">
+                    {getSortedAllSongs().map((song, idx) => {
+                      const isPlayingThis = currentPlayingSong?.id === song.id;
+                      const isLiked = favorites.includes(song.id);
+                      return (
+                        <div 
+                          key={song.id}
+                          className={`flex items-center justify-between p-3 rounded-2xl hover:bg-white/10 transition-colors group border ${
+                            isPlayingThis ? "border-indigo-500 bg-white/5" : "border-transparent"
+                          }`}
+                        >
+                          <div 
+                            onClick={() => onSelectSong(song)}
+                            className="flex items-center gap-3.5 w-8/12 cursor-pointer text-left"
+                          >
+                            <img 
+                              src={song.coverUrl || "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&h=300&fit=crop&q=80"} 
+                              alt={song.title} 
+                              className="w-10 h-10 object-cover rounded-xl border border-white/10 shrink-0"
+                              referrerPolicy="no-referrer" 
+                            />
+                            <div className="overflow-hidden">
+                              <p className="font-sans font-bold text-xs text-zinc-150 truncate group-hover:text-indigo-400 transition-colors uppercase tracking-tight">
+                                {song.title}
+                              </p>
+                              <div className="flex flex-wrap items-center gap-1.5 mt-0.5 text-[10px] text-zinc-550 font-mono">
+                                <span>{song.artistName}</span>
+                                <span className="text-zinc-650">•</span>
+                                <span className="italic text-zinc-450">Album: {getSongAlbumName(song)}</span>
+                                {song.genre && (
+                                  <>
+                                    <span className="text-zinc-650">•</span>
+                                    <span className="bg-white/5 px-1.5 py-0.5 rounded text-[8px] uppercase">{song.genre}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3.5 pl-2 text-right shrink-0">
+                            {/* Analytics metadata indicators */}
+                            <div className="hidden sm:flex items-center gap-3 text-[10px] font-mono text-zinc-550 mr-2">
+                              <span className="flex items-center gap-0.5" title="Plays">
+                                <span className="text-indigo-400">▶</span> {song.playCount || 0}
+                              </span>
+                              <span className="flex items-center gap-0.5" title="Likes">
+                                <span className="text-pink-500">♥</span> {song.likes || 0}
+                              </span>
+                            </div>
+
+                            {/* Like Toggle */}
+                            <button
+                              onClick={() => onLikeToggle(song.id)}
+                              className={`p-1.5 rounded-full hover:bg-white/5 transition-colors ${
+                                isLiked ? "text-pink-500" : "text-zinc-550 hover:text-white"
+                              }`}
+                            >
+                              <Heart className={`w-4 h-4 ${isLiked ? "fill-pink-500" : ""}`} />
+                            </button>
+
+                            {/* Play Button */}
+                            <button
+                              onClick={() => onSelectSong(song)}
+                              className="p-1.5 bg-indigo-650 hover:bg-indigo-600 rounded-full text-white transition-colors animate-pulse"
+                            >
+                              <Play className="w-3.5 h-3.5 fill-white pl-0.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="py-16 text-center text-zinc-550 border border-dashed border-white/10 rounded-2xl text-xs flex flex-col items-center justify-center gap-2">
+                    <Music className="w-10 h-10 text-zinc-600" />
+                    <span>{searchQuery ? "No matching songs found in catalog." : "No songs uploaded yet."}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* LIKED SONGS VIEW */}
             {activeSection === "liked" && (
               <div className="space-y-3">

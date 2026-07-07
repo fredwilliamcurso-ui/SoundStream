@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { User } from "../types";
-import { Mail, Shield, FileText, AlertCircle, Send, CheckCircle2 } from "lucide-react";
+import { Mail, Shield, FileText, AlertCircle, Send, CheckCircle2, Heart, Loader2 } from "lucide-react";
 import { analytics } from "../lib/analytics";
 
 interface LegalAndSupportProps {
@@ -10,10 +10,60 @@ interface LegalAndSupportProps {
 }
 
 export default function LegalAndSupport({ currentUser }: LegalAndSupportProps) {
-  const [activeSubTab, setActiveSubTab] = useState<"privacy" | "terms" | "dmca" | "contact">("privacy");
+  const [activeSubTab, setActiveSubTab] = useState<"privacy" | "terms" | "dmca" | "contact" | "donate">("privacy");
   
   // Support form state
   const [email, setEmail] = useState(currentUser?.email || "");
+
+  // Donation state and triggers
+  const [selectedDonationPreset, setSelectedDonationPreset] = useState<number>(15);
+  const [customDonationAmount, setCustomDonationAmount] = useState<string>("");
+  const [isDonating, setIsDonating] = useState(false);
+  const [donationError, setDonationError] = useState("");
+
+  const handleInitiateDonation = async () => {
+    setIsDonating(true);
+    setDonationError("");
+    const finalAmount = customDonationAmount ? parseFloat(customDonationAmount) : selectedDonationPreset;
+
+    if (isNaN(finalAmount) || finalAmount <= 0) {
+      setDonationError("Please enter a valid donation amount greater than $0.");
+      setIsDonating(false);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/stripe/create-checkout-session", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: currentUser?.uid || "anonymous_backer",
+          email: currentUser?.email || email || "",
+          packageId: "donation",
+          amount: finalAmount,
+          customName: "SoundStream Support Donation"
+        }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || "Failed to establish a secure checkout session.");
+      }
+
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error("Stripe checkout URL is missing.");
+      }
+    } catch (err: any) {
+      console.error("❌ Stripe donation error:", err);
+      setDonationError(err.message || "Failed to initiate secure donation.");
+      setIsDonating(false);
+    }
+  };
   const [subject, setSubject] = useState("");
   const [category, setCategory] = useState("general");
   const [message, setMessage] = useState("");
@@ -117,6 +167,17 @@ export default function LegalAndSupport({ currentUser }: LegalAndSupportProps) {
         >
           <Mail className="w-4 h-4" />
           <span>Contact & Support</span>
+        </button>
+        <button
+          onClick={() => setActiveSubTab("donate")}
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${
+            activeSubTab === "donate"
+              ? "border-indigo-500 text-white"
+              : "border-transparent text-zinc-400 hover:text-white"
+          }`}
+        >
+          <Heart className="w-4 h-4 text-rose-400 fill-rose-500/10" />
+          <span>Support SoundStream</span>
         </button>
       </div>
 
@@ -433,6 +494,97 @@ export default function LegalAndSupport({ currentUser }: LegalAndSupportProps) {
                   </p>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+        {activeSubTab === "donate" && (
+          <div className="space-y-6">
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <Heart className="w-5 h-5 text-rose-500 fill-rose-500/10" />
+              <span>Support SoundStream (Secure Donation Gateway)</span>
+            </h2>
+            <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">
+              Optional Contribution | Supporting independent artists & developer team
+            </p>
+
+            <div className="bg-[#050508]/40 border border-white/5 rounded-2xl p-6 sm:p-10 text-center max-w-2xl mx-auto space-y-6">
+              <p className="text-sm text-zinc-350 leading-relaxed">
+                Listeners, visitors, and registered users can all use SoundStream **FREE** without subscribing.
+                The donation is simply for people who enjoy SoundStream and want to support its ongoing development and hosting.
+              </p>
+
+              {/* Donation Amount Selector */}
+              <div className="space-y-4 text-left border-y border-white/5 py-6">
+                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">
+                  Select Donation Amount
+                </label>
+                <div className="grid grid-cols-5 gap-2.5">
+                  {[5, 15, 30, 50, 100].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => {
+                        setSelectedDonationPreset(preset);
+                        setCustomDonationAmount("");
+                      }}
+                      className={`py-3 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+                        selectedDonationPreset === preset && !customDonationAmount
+                          ? "bg-rose-600 border border-rose-500 text-white shadow-md shadow-rose-600/10"
+                          : "bg-white/5 border border-white/5 text-zinc-300 hover:bg-white/10 hover:text-white"
+                      }`}
+                    >
+                      ${preset}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="space-y-2 pt-2">
+                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">
+                    Or Enter Custom Amount ($ USD)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="Enter custom amount (e.g. 25)"
+                    value={customDonationAmount}
+                    onChange={(e) => {
+                      setCustomDonationAmount(e.target.value);
+                      setSelectedDonationPreset(0);
+                    }}
+                    className="w-full px-4 py-3 bg-black/60 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-rose-500 font-semibold"
+                  />
+                </div>
+              </div>
+
+              {donationError && (
+                <p className="text-xs text-rose-450 font-bold bg-rose-950/10 border border-rose-500/20 py-2.5 px-4 rounded-xl">
+                  ⚠️ {donationError}
+                </p>
+              )}
+
+              <div className="py-2">
+                <button
+                  onClick={handleInitiateDonation}
+                  disabled={isDonating}
+                  className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-rose-500 to-indigo-600 hover:from-rose-600 hover:to-indigo-700 text-white font-extrabold text-xs tracking-wider uppercase px-8 py-4 rounded-xl transition-all shadow-lg shadow-indigo-600/20 cursor-pointer disabled:opacity-50"
+                >
+                  {isDonating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Connecting Secure Gateway...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Heart className="w-4 h-4 text-white fill-white animate-pulse" />
+                      <span>Support with ${customDonationAmount ? parseFloat(customDonationAmount) || 0 : selectedDonationPreset}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+              
+              <p className="text-xs text-zinc-500 leading-normal">
+                You will be redirected to our secure PCI-DSS compliant Stripe checkout page. Thank you for your kindness and backing the independent audio community!
+              </p>
             </div>
           </div>
         )}

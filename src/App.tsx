@@ -33,13 +33,29 @@ import AlbumDetailsPage from "./components/AlbumDetailsPage";
 import PlaylistDetailsPage from "./components/PlaylistDetailsPage";
 import TrendingCharts from "./components/TrendingCharts";
 import AdminDashboard from "./components/AdminDashboard";
+import ShortsFeed from "./components/ShortsFeed";
+import ChatDashboard from "./components/ChatDashboard";
+import LiveStreamingDashboard from "./components/LiveStreamingDashboard";
+import VideoDashboard from "./components/VideoDashboard";
 import { admob } from "./lib/admob";
 import { GDPRConsentDialog, AdMobInterstitial, AdMobRewarded, AdMobBanner } from "./components/AdMobComponents";
 import MonetizationPortal from "./components/MonetizationPortal";
 import LegalAndSupport from "./components/LegalAndSupport";
+import PrivacyPolicyPage from "./components/PrivacyPolicyPage";
+import TermsOfServicePage from "./components/TermsOfServicePage";
+import CreatorSubscriptionPage from "./components/CreatorSubscriptionPage";
+import VideoPlayer from "./components/VideoPlayer";
+import SoundStreamWallet from "./components/SoundStreamWallet";
+import SoundStreamCreatorHub from "./components/SoundStreamCreatorHub";
+import SoundStreamLeaderboards from "./components/SoundStreamLeaderboards";
+import SoundStreamGamesCenter from "./components/SoundStreamGamesCenter";
+import SoundStreamAgencyHub from "./components/SoundStreamAgencyHub";
+import SoundStreamAdsManager from "./components/SoundStreamAdsManager";
+import { motion, AnimatePresence } from "motion/react";
 import { analytics } from "./lib/analytics";
+import { crashlytics } from "./lib/google-services";
 
-import { Music, AlertCircle, Award, Sparkles } from "lucide-react";
+import { Music, AlertCircle, Award, Sparkles, Smartphone, Download, X, Share } from "lucide-react";
 
 export default function App() {
   // Real-time subscribed collections lists
@@ -63,6 +79,29 @@ export default function App() {
 
   // Application routing / view navigation
   const [currentTab, setCurrentTab] = useState<string>("home");
+  const [currentPathname, setCurrentPathname] = useState<string>(window.location.pathname);
+
+  // Automatically switch tab to "wallet" if we return from Stripe success/cancel
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("status");
+    if (status === "success" || status === "cancel" || params.get("session_id")) {
+      setCurrentTab("wallet");
+    }
+  }, []);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentPathname(window.location.pathname);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  const handleNavigate = (path: string) => {
+    window.history.pushState({}, "", path);
+    setCurrentPathname(path);
+  };
   const [libraryTabSection, setLibraryTabSection] = useState<string>("liked");
   const [selectedArtistId, setSelectedArtistId] = useState<string | null>(null);
   const [selectedGenre, setSelectedGenre] = useState<string>("All");
@@ -84,6 +123,7 @@ export default function App() {
 
   // Audio/Video media player playback states
   const [currentPlayingSong, setCurrentPlayingSong] = useState<Song | null>(null);
+  const [currentPlayingVideo, setCurrentPlayingVideo] = useState<Song | null>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [playbackTime, setPlaybackTime] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
   const [isShuffle, setIsShuffle] = useState<boolean>(false);
@@ -95,6 +135,14 @@ export default function App() {
   
   // Core HTML5 media tag reference
   const audioRef = useRef<HTMLVideoElement | null>(null);
+
+  // PWA Install States
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstallable, setIsInstallable] = useState<boolean>(false);
+  const [isAppInstalled, setIsAppInstalled] = useState<boolean>(false);
+  const [isAndroid, setIsAndroid] = useState<boolean>(false);
+  const [isIOS, setIsIOS] = useState<boolean>(false);
+  const [showIOSPrompt, setShowIOSPrompt] = useState<boolean>(false);
 
   // AdMob States
   const [showInterstitialAd, setShowInterstitialAd] = useState<boolean>(false);
@@ -131,6 +179,145 @@ export default function App() {
       window.removeEventListener("open-premium-upgrade", handleUpgradeRequest);
     };
   }, [currentUser]);
+
+  // PWA Install Handler & Detectors
+  useEffect(() => {
+    // Detect if running on Android or iOS
+    const ua = navigator.userAgent.toLowerCase();
+    setIsAndroid(/android/.test(ua));
+    setIsIOS(/ipad|iphone|ipod/.test(ua) && !(window as any).MSStream);
+
+    // Check if app is already running in standalone mode (i.e. already installed)
+    const checkIsInstalled = () => {
+      const isStandalone = 
+        window.matchMedia("(display-mode: standalone)").matches || 
+        (navigator as any).standalone === true ||
+        document.referrer.includes("android-app://");
+      
+      setIsAppInstalled(isStandalone);
+    };
+
+    checkIsInstalled();
+    
+    // Also monitor changes to display-mode
+    const mediaQuery = window.matchMedia("(display-mode: standalone)");
+    const handleMediaChange = (e: MediaQueryListEvent) => {
+      setIsAppInstalled(e.matches);
+    };
+    
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener("change", handleMediaChange);
+    }
+
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setIsInstallable(true);
+      console.log("PWA beforeinstallprompt event fired.");
+    };
+
+    const handleAppInstalled = () => {
+      setIsAppInstalled(true);
+      setIsInstallable(false);
+      setDeferredPrompt(null);
+      console.log("PWA appinstalled event fired.");
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    window.addEventListener("appinstalled", handleAppInstalled);
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.removeEventListener("appinstalled", handleAppInstalled);
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener("change", handleMediaChange);
+      }
+    };
+  }, []);
+
+  // One-time self-repair check to scan and clean up any historically corrupted database documents from previous turns
+  useEffect(() => {
+    const repairCorruptedData = async () => {
+      try {
+        console.log("Running one-time self-repair scan for corrupted database fields...");
+        
+        // 1. Repair liveStreams collection
+        const streamsSnap = await getDocs(collection(db, "liveStreams"));
+        for (const docSnap of streamsSnap.docs) {
+          const data = docSnap.data();
+          let needsUpdate = false;
+          const updatedFields: any = {};
+          
+          const fieldsToClean = [
+            "likes", "viewerCount", "totalViewers", "peakViewers", 
+            "chatMessagesCount", "virtualGiftsCount", "tipsAmount", "superChatsAmount"
+          ];
+          
+          fieldsToClean.forEach(field => {
+            const val = data[field];
+            if (val && typeof val === "object" && ('_methodName' in val || 'Pr' in val)) {
+              updatedFields[field] = 0;
+              needsUpdate = true;
+            }
+          });
+          
+          if (needsUpdate) {
+            await updateDoc(docSnap.ref, updatedFields);
+            console.log(`Self-repair: Cleaned corrupted fields in liveStream document: ${docSnap.id}`);
+          }
+        }
+
+        // 2. Repair users collection
+        const usersSnap = await getDocs(collection(db, "users"));
+        for (const docSnap of usersSnap.docs) {
+          const data = docSnap.data();
+          let needsUpdate = false;
+          const updatedFields: any = {};
+          
+          const userFieldsToClean = ["followersCount", "followingCount", "playlistsCount"];
+          userFieldsToClean.forEach(field => {
+            const val = data[field];
+            if (val && typeof val === "object" && ('_methodName' in val || 'Pr' in val)) {
+              updatedFields[field] = 0;
+              needsUpdate = true;
+            }
+          });
+          
+          if (needsUpdate) {
+            await updateDoc(docSnap.ref, updatedFields);
+            console.log(`Self-repair: Cleaned corrupted fields in user document: ${docSnap.id}`);
+          }
+        }
+        
+        console.log("Self-repair scan and repair completed successfully.");
+      } catch (err) {
+        console.warn("Self-repair scan encountered a warning or completed with skipped items:", err);
+      }
+    };
+
+    // Run slightly deferred to avoid blocking main thread at mount
+    const timer = setTimeout(() => {
+      repairCorruptedData();
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) {
+      console.warn("PWA install prompt is not available.");
+      return;
+    }
+    // Show the install prompt
+    deferredPrompt.prompt();
+    // Wait for the user to respond to the prompt
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log(`User response to install prompt: ${outcome}`);
+    if (outcome === "accepted") {
+      setIsAppInstalled(true);
+      setIsInstallable(false);
+      setDeferredPrompt(null);
+    }
+  };
 
   // Sync mode based on track availability
   useEffect(() => {
@@ -321,12 +508,31 @@ export default function App() {
               uid: firebaseUser.uid,
               id: firebaseUser.uid,
               username: d.username || firebaseUser.email?.split("@")[0] || "User",
-              displayName: d.username || firebaseUser.email?.split("@")[0] || "User",
+              displayName: d.displayName || d.username || firebaseUser.email?.split("@")[0] || "User",
               email: firebaseUser.email || "",
               photoURL: d.photoURL || firebaseUser.photoURL || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&q=80",
               createdAt: d.createdAt || new Date().toISOString(),
               role: d.role || "listener",
-              isSuspended: d.isSuspended || false
+              isSuspended: d.isSuspended || false,
+              tiktokId: d.tiktokId || undefined,
+              tiktokUsername: d.tiktokUsername || undefined,
+              bio: d.bio || "",
+              country: d.country || "",
+              website: d.website || "",
+              googleLinked: d.googleLinked !== undefined ? d.googleLinked : true,
+              tiktokLinked: d.tiktokLinked || false,
+              followersCount: d.followersCount || 0,
+              followingCount: d.followingCount || 0,
+              playlistsCount: d.playlistsCount || 0,
+              likedSongs: d.likedSongs || [],
+              recentlyPlayed: d.recentlyPlayed || [],
+              isVerified: d.isVerified || false,
+              isPrivate: d.isPrivate || false,
+              creatorSubscriptionStatus: d.creatorSubscriptionStatus || undefined,
+              creatorSubscriptionDate: d.creatorSubscriptionDate || undefined,
+              creatorSubscriptionProvider: d.creatorSubscriptionProvider || undefined,
+              creatorSubscriptionActive: d.creatorSubscriptionActive !== undefined ? d.creatorSubscriptionActive : false,
+              updatedAt: d.updatedAt || d.createdAt || new Date().toISOString()
             });
           } else {
             // Setup new listener user record
@@ -340,17 +546,43 @@ export default function App() {
               photoURL: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&q=80",
               createdAt: new Date().toISOString(),
               role: isTargetAdmin ? "admin" : "listener",
-              isSuspended: false
+              isSuspended: false,
+              bio: "",
+              country: "",
+              website: "",
+              googleLinked: true,
+              tiktokLinked: false,
+              followersCount: 0,
+              followingCount: 0,
+              playlistsCount: 0,
+              likedSongs: [],
+              recentlyPlayed: [],
+              isVerified: false,
+              isPrivate: false
             };
             await setDoc(userDocRef, {
               uid: newUser.uid || "",
               username: newUser.username || "",
+              displayName: newUser.displayName || "",
               email: newUser.email || "",
               photoURL: newUser.photoURL || "",
               createdAt: newUser.createdAt || new Date().toISOString(),
               role: newUser.role || "listener",
               isSuspended: false,
-              isAdmin: isTargetAdmin
+              isAdmin: isTargetAdmin,
+              bio: "",
+              country: "",
+              website: "",
+              googleLinked: true,
+              tiktokLinked: false,
+              followersCount: 0,
+              followingCount: 0,
+              playlistsCount: 0,
+              likedSongs: [],
+              recentlyPlayed: [],
+              isVerified: false,
+              isPrivate: false,
+              updatedAt: new Date().toISOString()
             });
             setCurrentUser(newUser);
           }
@@ -457,6 +689,39 @@ export default function App() {
     };
   }, [currentUser]);
 
+  // Synchronize user counts and lists (playlistsCount, likedSongs, recentlyPlayed, followingCount) automatically to Firestore user doc
+  useEffect(() => {
+    if (!currentUser || !currentUser.uid) return;
+    
+    // User's playlists count
+    const userPlaylistsCount = playlists.filter(p => p.ownerId === currentUser.uid || p.userId === currentUser.uid).length;
+    // User's liked song IDs
+    const userLikedSongIds = favorites;
+    // User's recently played song IDs (unique list)
+    const userRecentlyPlayedSongIds = Array.from(new Set(recentlyPlayed.map(rp => rp.songId))).slice(0, 20);
+    // User's following count
+    const userFollowingCount = followingArtists.length;
+    
+    // Only update if there is actually a difference to prevent infinite loops
+    if (
+      currentUser.playlistsCount !== userPlaylistsCount ||
+      JSON.stringify(currentUser.likedSongs) !== JSON.stringify(userLikedSongIds) ||
+      JSON.stringify(currentUser.recentlyPlayed) !== JSON.stringify(userRecentlyPlayedSongIds) ||
+      currentUser.followingCount !== userFollowingCount
+    ) {
+      const userDocRef = doc(db, "users", currentUser.uid);
+      updateDoc(userDocRef, {
+        playlistsCount: userPlaylistsCount,
+        likedSongs: userLikedSongIds,
+        recentlyPlayed: userRecentlyPlayedSongIds,
+        followingCount: userFollowingCount,
+        updatedAt: new Date().toISOString()
+      }).catch(err => {
+        console.error("Failed to sync profile counts to Firestore:", err);
+      });
+    }
+  }, [favorites, recentlyPlayed, playlists, followingArtists, currentUser?.uid]);
+
   // 4. Handle incoming deep links (query params)
   useEffect(() => {
     if (songs.length === 0 && artists.length === 0 && albums.length === 0) return;
@@ -507,10 +772,25 @@ export default function App() {
 
     if (isPlaying) {
       console.log("PLAYING SONG MEDIA URL:", currentMediaSrc);
-      audioRef.current.play().catch((err) => {
+      audioRef.current.play().catch((err: any) => {
+        // Safe check for aborted play requests which are completely normal when transitioning or swapping tracks
+        if (err && err.name === "AbortError") {
+          console.log("[Playback] Play promise was aborted due to track switch or transition.");
+          return;
+        }
+        
         console.warn("Media playback autoplay blocked by browser sandbox policy.", err);
         setIsPlaying(false);
         setPlaybackError("Playback blocked or paused. Click the Play button to resume streaming.");
+
+        // Log genuine failures to Crashlytics
+        crashlytics.logException(err instanceof Error ? err : new Error(String(err)), "playback_autoplay_blocked", {
+          songId: currentPlayingSong?.id,
+          songTitle: currentPlayingSong?.title,
+          mediaSrc: currentMediaSrc,
+          errorName: err?.name,
+          errorMessage: err?.message
+        });
       });
     } else {
       audioRef.current.pause();
@@ -675,25 +955,60 @@ export default function App() {
     }
   };
 
+  const isSongVideo = (song: Song | null): boolean => {
+    if (!song) return false;
+    if (song.videoUrl && song.videoUrl.trim() !== "") {
+      return true;
+    }
+    if (song.audioUrl) {
+      const urlWithoutQuery = song.audioUrl.toLowerCase().split("?")[0];
+      if (
+        urlWithoutQuery.endsWith(".mp4") ||
+        urlWithoutQuery.endsWith(".webm") ||
+        urlWithoutQuery.endsWith(".mov") ||
+        urlWithoutQuery.endsWith(".m4v") ||
+        urlWithoutQuery.includes("video")
+      ) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   // 6. Interaction Actions: Play song, Like Song, Follow Artist, Create/Add playlist
-  const onSelectSong = async (song: Song) => {
+  const onSelectSong = async (song: Song, bypassAd = false) => {
     // Check if free user has triggered an AdMob interstitial ad before starting playback
-    if (admob.recordSongTransition(currentUser, isPlaying)) {
+    if (!bypassAd && admob.recordSongTransition(currentUser, isPlaying)) {
       setPendingSongToPlay(song);
       setShowInterstitialAd(true);
       return;
     }
 
-    setCurrentPlayingSong(song);
-    setIsPlaying(true);
+    if (isSongVideo(song)) {
+      // Pause audio player so they don't play simultaneously
+      setIsPlaying(false);
+      setCurrentPlayingVideo(song);
 
-    // Track play analytics event
-    analytics.trackEvent("play", currentUser?.uid, currentUser?.email, {
-      songId: song.id,
-      title: song.title,
-      artistId: song.artistId,
-      playbackMode: song.videoUrl ? "video" : "audio"
-    });
+      // Track play analytics event for video
+      analytics.trackEvent("video_play", currentUser?.uid, currentUser?.email, {
+        songId: song.id,
+        title: song.title,
+        artistId: song.artistId,
+        videoUrl: song.videoUrl || song.audioUrl
+      });
+    } else {
+      // It is an audio song! Play in MusicPlayer
+      setCurrentPlayingSong(song);
+      setIsPlaying(true);
+
+      // Track play analytics event
+      analytics.trackEvent("play", currentUser?.uid, currentUser?.email, {
+        songId: song.id,
+        title: song.title,
+        artistId: song.artistId,
+        playbackMode: "audio"
+      });
+    }
 
     if (playbackQueue.length > 0 && !playbackQueue.some((s) => s.id === song.id)) {
       setPlaybackQueue([]);
@@ -1085,6 +1400,24 @@ export default function App() {
 
   // 7. Render Route Selector
   const renderTabContent = () => {
+    // Subscription gate check for new Creator/Artist registrations
+    if (currentUser && currentUser.role === "artist") {
+      const DEPLOYMENT_THRESHOLD = "2026-07-03T08:50:00.000Z";
+      const isNewUser = currentUser.createdAt > DEPLOYMENT_THRESHOLD;
+      if (isNewUser && !currentUser.creatorSubscriptionActive) {
+        return (
+          <CreatorSubscriptionPage
+            currentUser={currentUser}
+            onLogout={onLogout}
+            onActivationSuccess={(updatedUser) => {
+              setCurrentUser(updatedUser);
+              setCurrentTab("upload");
+            }}
+          />
+        );
+      }
+    }
+
     switch (currentTab) {
       case "home":
         return (
@@ -1117,6 +1450,14 @@ export default function App() {
             onViewTrendingAll={() => {
               setCurrentTab("trending");
             }}
+            isInstallable={isInstallable}
+            isAppInstalled={isAppInstalled}
+            onInstall={handleInstallClick}
+            isAndroid={isAndroid}
+            isIOS={isIOS}
+            onShowIOSPrompt={() => setShowIOSPrompt(true)}
+            followingArtists={followingArtists}
+            setCurrentTab={setCurrentTab}
           />
         );
       case "trending":
@@ -1223,6 +1564,60 @@ export default function App() {
             playlists={playlists}
             playlistSongs={playlistSongs}
             albums={albums}
+          />
+        );
+      case "shorts":
+        return (
+          <ShortsFeed
+            currentUser={currentUser}
+            followingArtists={followingArtists}
+            onFollowToggle={onFollowToggle}
+            songs={songs}
+            artists={artists}
+            onSelectSong={onSelectSong}
+            setCurrentTab={setCurrentTab}
+          />
+        );
+      case "live":
+        return (
+          <LiveStreamingDashboard
+            currentUser={currentUser}
+            artists={artists}
+            followingArtists={followingArtists}
+            onFollowToggle={onFollowToggle}
+            onSelectSong={onSelectSong}
+            setCurrentTab={setCurrentTab}
+            songs={visibleSongs}
+          />
+        );
+      case "video":
+        return (
+          <VideoDashboard
+            songs={visibleSongs}
+            artists={artists}
+            currentUser={currentUser}
+            favorites={favorites}
+            followingArtists={followingArtists}
+            playlists={playlists.filter(p => p.ownerId === currentUser?.uid || p.userId === currentUser?.uid || p.createdBy === currentUser?.uid)}
+            onSelectSong={onSelectSong}
+            onLikeToggle={onLikeToggle}
+            onShareSong={onShareSong}
+            onFollowToggle={onFollowToggle}
+            onAddSongToPlaylist={onAddSongToPlaylist}
+            onCreatePlaylist={onCreatePlaylist}
+          />
+        );
+      case "chat":
+        return (
+          <ChatDashboard
+            currentUser={currentUser}
+            songs={songs}
+            playlists={playlists}
+            artists={artists}
+            onSelectSong={onSelectSong}
+            setCurrentTab={setCurrentTab}
+            setSelectedPlaylistId={setSelectedPlaylistId}
+            setSelectedArtistId={setSelectedArtistId}
           />
         );
       case "artist-profile":
@@ -1407,10 +1802,63 @@ export default function App() {
             currentUser={currentUser}
           />
         );
+      case "wallet":
+        return (
+          <SoundStreamWallet
+            currentUser={currentUser}
+            userId={currentUser?.uid || ""}
+          />
+        );
+      case "creator-hub":
+        return (
+          <SoundStreamCreatorHub
+            creatorId={currentUser?.uid || ""}
+          />
+        );
+      case "leaderboards":
+        return (
+          <SoundStreamLeaderboards />
+        );
+      case "games":
+        return (
+          <SoundStreamGamesCenter
+            userId={currentUser?.uid || ""}
+            username={currentUser?.username || currentUser?.displayName || ""}
+            avatar={currentUser?.photoURL || ""}
+            isAdmin={isAdmin}
+          />
+        );
+      case "agency":
+        return (
+          <SoundStreamAgencyHub
+            userId={currentUser?.uid || ""}
+            userEmail={currentUser?.email || ""}
+            isArtist={currentUser?.role === "creator" || currentUser?.role === "artist"}
+            isAdmin={isAdmin}
+          />
+        );
+      case "ads":
+        return (
+          <SoundStreamAdsManager
+            userId={currentUser?.uid || "guest"}
+            userEmail={currentUser?.email || "guest@soundstream.com"}
+            isAdmin={isAdmin}
+            onSelectSong={onSelectSong}
+            setCurrentTab={setCurrentTab}
+          />
+        );
       default:
         return null;
     }
   };
+
+  if (currentPathname === "/privacy") {
+    return <PrivacyPolicyPage onNavigate={handleNavigate} />;
+  }
+
+  if (currentPathname === "/terms") {
+    return <TermsOfServicePage onNavigate={handleNavigate} />;
+  }
 
   if (currentUser?.isSuspended) {
     return (
@@ -1470,10 +1918,67 @@ export default function App() {
         isAdmin={isAdmin}
         onWatchRewardedAd={() => setShowRewardedAd(true)}
         setLibraryTabSection={setLibraryTabSection}
+        isInstallable={isInstallable}
+        isAppInstalled={isAppInstalled}
+        onInstall={handleInstallClick}
+        isAndroid={isAndroid}
+        isIOS={isIOS}
+        onShowIOSPrompt={() => setShowIOSPrompt(true)}
+        playlists={playlists}
+        songs={songs}
+        artists={artists}
+        favorites={favorites}
+        followingArtists={followingArtists}
+        recentlyPlayed={recentlyPlayed}
       />
 
       {/* Main Content Pane */}
       <main className="flex-1 p-6 md:p-10 pb-36 overflow-y-auto max-h-screen">
+        {/* Premium Unified Top Navigation Header */}
+        {currentTab !== "login" && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-5 mb-8 select-none">
+            <div className="space-y-0.5">
+              <h1 className="text-xl font-extrabold tracking-tight text-white uppercase font-sans">
+                SoundStream <span className="text-indigo-400 font-mono text-xs ml-1.5">v3.5.0</span>
+              </h1>
+              <p className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest font-semibold">
+                High-Fidelity Independent Workspace
+              </p>
+            </div>
+
+            {/* Segmented Section Controller */}
+            <div className="flex items-center gap-1 bg-zinc-950/40 border border-white/5 p-1 rounded-2xl self-start sm:self-auto shadow-inner">
+              {[
+                { id: "home", label: "Music" },
+                { id: "video", label: "Video" },
+                { id: "live", label: "Livestream" },
+                { id: "library", label: "Library" }
+              ].map((section) => {
+                const isActive = currentTab === section.id || 
+                  (section.id === "library" && ["library", "playlist", "album", "artist-profile", "artist-profile-own"].includes(currentTab)) ||
+                  (section.id === "home" && ["trending", "yt-sync"].includes(currentTab));
+                return (
+                  <button
+                    key={section.id}
+                    onClick={() => {
+                      setCurrentTab(section.id);
+                      if (section.id === "library") {
+                        setLibraryTabSection("playlists");
+                      }
+                    }}
+                    className={`px-4 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all border-none cursor-pointer font-sans ${
+                      isActive
+                        ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/10"
+                        : "text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.03]"
+                    }`}
+                  >
+                    {section.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
         {renderTabContent()}
         {["home", "search", "library", "trending", "artist-profile"].includes(currentTab) && (
           <div className="mt-8">
@@ -1534,9 +2039,8 @@ export default function App() {
             if (pendingSongToPlay) {
               const song = pendingSongToPlay;
               setPendingSongToPlay(null);
-              // Bypasses further transition increment checks to prevent recursion loops
-              setCurrentPlayingSong(song);
-              setIsPlaying(true);
+              // Bypasses further transition increment checks to prevent recursion loops and ensures proper routing
+              onSelectSong(song, true);
             }
           }}
         />
@@ -1556,6 +2060,132 @@ export default function App() {
           }}
         />
       )}
+
+      {/* Floating Install/Download Banner */}
+      {!isAppInstalled && (isInstallable || isAndroid || isIOS) && (
+        <div className="fixed bottom-24 md:bottom-28 right-4 md:right-10 z-40 animate-fade-in animate-bounce-subtle">
+          {isInstallable ? (
+            <button
+              onClick={handleInstallClick}
+              className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-sans font-bold text-xs rounded-full shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer border-none"
+            >
+              <Smartphone className="w-4 h-4 text-white" />
+              <span>Install SoundStreamy</span>
+            </button>
+          ) : isIOS ? (
+            <button
+              onClick={() => setShowIOSPrompt(true)}
+              className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-sans font-bold text-xs rounded-full shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer border-none"
+            >
+              <Smartphone className="w-4 h-4 text-white" />
+              <span>Install SoundStreamy</span>
+            </button>
+          ) : isAndroid ? (
+            <a
+              href="/Soundstream.apk"
+              download="Soundstream.apk"
+              onClick={() => {
+                analytics.trackEvent("apk_download", currentUser?.uid || "anonymous", currentUser?.email || "anonymous", {
+                  fileName: "Soundstream.apk",
+                  location: "floating_install_banner"
+                });
+              }}
+              className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-sans font-bold text-xs rounded-full shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer border-none no-underline"
+            >
+              <Download className="w-4 h-4 text-white animate-pulse" />
+              <span>Download Android App</span>
+            </a>
+          ) : null}
+        </div>
+      )}
+
+      {/* iOS PWA Instructions Overlay */}
+      {showIOSPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-sm bg-[#121214] border border-white/10 rounded-3xl p-6 shadow-2xl text-center animate-scale-up">
+            {/* Close button */}
+            <button
+              onClick={() => setShowIOSPrompt(false)}
+              className="absolute top-4 right-4 text-zinc-400 hover:text-white bg-white/5 hover:bg-white/10 p-1.5 rounded-full transition-all cursor-pointer border-none"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="w-12 h-12 bg-purple-600/10 text-purple-400 border border-purple-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Smartphone className="w-6 h-6" />
+            </div>
+
+            <h3 className="text-lg font-bold text-white mb-2">Install SoundStreamy</h3>
+            <p className="text-xs text-zinc-400 mb-6 leading-relaxed">
+              Add SoundStreamy to your home screen to enjoy a immersive full-screen experience and instant offline audio listening!
+            </p>
+
+            {/* Instruction Steps */}
+            <div className="text-left space-y-4 mb-6">
+              <div className="flex items-start gap-3">
+                <div className="flex items-center justify-center w-5 h-5 rounded-full bg-purple-600/20 text-purple-400 font-sans font-bold text-[10px] mt-0.5">
+                  1
+                </div>
+                <div className="flex-1 text-xs text-zinc-350">
+                  Tap the <span className="inline-flex items-center gap-1 font-bold text-white bg-white/5 px-1.5 py-0.5 rounded"><Share className="w-3 h-3" /> Share</span> button at the bottom (or top) of your Safari browser.
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="flex items-center justify-center w-5 h-5 rounded-full bg-purple-600/20 text-purple-400 font-sans font-bold text-[10px] mt-0.5">
+                  2
+                </div>
+                <div className="flex-1 text-xs text-zinc-350">
+                  Scroll down the share sheet and select <span className="font-bold text-white">"Add to Home Screen"</span>.
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="flex items-center justify-center w-5 h-5 rounded-full bg-purple-600/20 text-purple-400 font-sans font-bold text-[10px] mt-0.5">
+                  3
+                </div>
+                <div className="flex-1 text-xs text-zinc-350">
+                  Tap <span className="font-bold text-purple-400">"Add"</span> in the top-right corner to complete the install!
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowIOSPrompt(false)}
+              className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold uppercase py-3 rounded-xl transition-all cursor-pointer border-none shadow-md shadow-indigo-500/10 hover:shadow-indigo-500/20"
+            >
+              Got It
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Immersive Dedicated Video Player Overlay */}
+      <AnimatePresence>
+        {currentPlayingVideo && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-[#020204]/98 backdrop-blur-md flex flex-col items-center justify-center p-4 md:p-8 z-[100]"
+          >
+            <div className="w-full max-w-4xl space-y-4 relative flex flex-col items-center">
+              <VideoPlayer 
+                videoUrl={currentPlayingVideo.videoUrl || currentPlayingVideo.audioUrl}
+                title={currentPlayingVideo.title}
+                artistName={currentPlayingVideo.artistName}
+                coverUrl={currentPlayingVideo.coverUrl}
+                onClose={() => {
+                  setCurrentPlayingVideo(null);
+                }}
+              />
+              <p className="text-center font-mono text-[10px] tracking-widest text-zinc-500 uppercase">
+                Now experiencing high-definition independent cinema on SoundStream ⚡ Press Esc or click close to return
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

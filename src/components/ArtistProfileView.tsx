@@ -2,6 +2,8 @@ import React from "react";
 import { Song, Artist, Album } from "../types";
 import { Play, Heart, Users, Music, ShieldCheck, Share2, ExternalLink, Youtube, Layers, Video } from "lucide-react";
 import { motion } from "motion/react";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { db } from "../lib/firebase";
 
 interface ArtistProfileViewProps {
   artist: Artist;
@@ -40,6 +42,34 @@ export default function ArtistProfileView({
   const artistVideos = artistSongs.filter(s => !!s.videoUrl);
   const totalArtistPlayCount = artistSongs.reduce((sum, s) => sum + s.playCount, 0);
   const socialArtist = artist as any;
+
+  // Real-time listener for creator's public shorts on their profile page
+  const [artistShorts, setArtistShorts] = React.useState<any[]>([]);
+  React.useEffect(() => {
+    const artistId = artist.userId || artist.uid;
+    if (!artistId) return;
+
+    const shortsQuery = query(
+      collection(db, "shorts"),
+      where("creatorId", "==", artistId),
+      where("visibility", "==", "public")
+    );
+
+    const unsubscribe = onSnapshot(shortsQuery, (snapshot) => {
+      const docsList: any[] = [];
+      snapshot.forEach((doc) => {
+        docsList.push({ id: doc.id, ...doc.data() });
+      });
+      setArtistShorts(docsList);
+    }, (error) => {
+      console.error("Error listening to artist profile shorts:", error);
+    });
+
+    return () => unsubscribe();
+  }, [artist.userId, artist.uid]);
+
+  const totalShortsViews = artistShorts.reduce((acc, s) => acc + (s.views || 0), 0);
+  const totalShortsLikes = artistShorts.reduce((acc, s) => acc + (s.likes || 0), 0);
 
   return (
     <div id="soundstream-artist-profile" className="text-white font-sans max-w-5xl mx-auto py-2 space-y-8">
@@ -80,6 +110,10 @@ export default function ArtistProfileView({
             </span>
             <span>•</span>
             <span className="flex items-center gap-1">
+              <strong className="text-white font-bold">{(socialArtist.followingCount || 0).toLocaleString()}</strong> following
+            </span>
+            <span>•</span>
+            <span className="flex items-center gap-1">
               <Music className="w-4 h-4 text-indigo-400" />
               <strong className="text-white font-bold">{artistSongs.length}</strong> catalog track{artistSongs.length !== 1 ? 's' : ''}
             </span>
@@ -87,6 +121,23 @@ export default function ArtistProfileView({
             <span>
               <strong className="text-white font-bold">{totalArtistPlayCount.toLocaleString()}</strong> stream plays
             </span>
+            {artistShorts.length > 0 && (
+              <>
+                <span>•</span>
+                <span className="flex items-center gap-1">
+                  <Video className="w-4 h-4 text-indigo-400" />
+                  <strong className="text-white font-bold">{artistShorts.length}</strong> short{artistShorts.length !== 1 ? 's' : ''}
+                </span>
+                <span>•</span>
+                <span>
+                  <strong className="text-white font-bold">{totalShortsViews.toLocaleString()}</strong> video views
+                </span>
+                <span>•</span>
+                <span>
+                  <strong className="text-white font-bold">{totalShortsLikes.toLocaleString()}</strong> video likes
+                </span>
+              </>
+            )}
           </div>
         </div>
 
@@ -137,12 +188,29 @@ export default function ArtistProfileView({
           </p>
 
           {/* External Streaming Platform Portals */}
-          {(socialArtist.spotifyUrl || socialArtist.appleMusicUrl || socialArtist.audiomackUrl || socialArtist.amazonMusicUrl || socialArtist.youtubeUrl) && (
+          {(socialArtist.spotifyUrl || socialArtist.appleMusicUrl || socialArtist.audiomackUrl || socialArtist.amazonMusicUrl || socialArtist.youtubeUrl || socialArtist.tiktokUsername) && (
             <div className="border-t border-white/5 pt-4.5 space-y-3">
               <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest block font-bold">
                 External Hubs
               </span>
               <div className="grid grid-cols-1 gap-2">
+                {socialArtist.tiktokUsername && (
+                  <a 
+                    id="portal-tiktok-link"
+                    href={`https://www.tiktok.com/@${socialArtist.tiktokUsername}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between bg-black hover:bg-zinc-950 border border-pink-500/20 hover:border-pink-500/50 rounded-xl px-3.5 py-2.5 transition-all group cursor-pointer shadow-sm shadow-pink-500/5 animate-pulse"
+                  >
+                    <span className="text-xs font-bold text-white font-sans flex items-center gap-2">
+                      <svg className="w-3.5 h-3.5 text-pink-500" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.02 1.59 4.19a8.1 8.1 0 0 0 3.93 2.45v3.91c-.88-.08-1.75-.32-2.58-.66a8.04 8.04 0 0 1-3.1-2.28c-.06 2.3-.01 4.59-.02 6.89-.04 1.34-.33 2.7-.93 3.89a7.33 7.33 0 0 1-4.71 4.14c-1.63.49-3.41.48-5.02-.1a7.35 7.35 0 0 1-4.14-4.52c-.52-1.57-.45-3.32.19-4.83a7.32 7.32 0 0 1 4.88-4.27V12.7a3.42 3.42 0 0 0-2.07 1.37 3.44 3.44 0 0 0-.42 3.04 3.42 3.42 0 0 0 2.76 2.3c.96.1 1.95-.15 2.72-.75.83-.65 1.29-1.67 1.28-2.72.03-3.99.01-7.98.02-11.97-.01-.32.03-.64.12-.95.27-1.14.94-2.15 1.88-2.84.44-.31.93-.55 1.45-.69.45-.11.9-.17 1.35-.17Z"/>
+                      </svg>
+                      Follow on TikTok
+                    </span>
+                    <ExternalLink className="w-3.5 h-3.5 text-pink-400/80 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                  </a>
+                )}
                 {socialArtist.spotifyUrl && (
                   <a 
                     id="portal-spotify-link"
@@ -431,6 +499,91 @@ export default function ArtistProfileView({
                       </div>
                     );
                   })}
+                </div>
+              )}
+
+              {/* Creator's TikTok Feed */}
+              {artist.tiktokUsername && (
+                <div className="pt-6 border-t border-white/5 space-y-4 animate-fade-in">
+                  <h3 className="font-sans font-bold text-xs text-zinc-350 tracking-wider uppercase font-mono flex items-center gap-2">
+                    <svg className="w-4 h-4 text-pink-500 animate-pulse" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.02 1.59 4.19a8.1 8.1 0 0 0 3.93 2.45v3.91c-.88-.08-1.75-.32-2.58-.66a8.04 8.04 0 0 1-3.1-2.28c-.06 2.3-.01 4.59-.02 6.89-.04 1.34-.33 2.7-.93 3.89a7.33 7.33 0 0 1-4.71 4.14c-1.63.49-3.41.48-5.02-.1a7.35 7.35 0 0 1-4.14-4.52c-.52-1.57-.45-3.32.19-4.83a7.32 7.32 0 0 1 4.88-4.27V12.7a3.42 3.42 0 0 0-2.07 1.37 3.44 3.44 0 0 0-.42 3.04 3.42 3.42 0 0 0 2.76 2.3c.96.1 1.95-.15 2.72-.75.83-.65 1.29-1.67 1.28-2.72.03-3.99.01-7.98.02-11.97-.01-.32.03-.64.12-.95.27-1.14.94-2.15 1.88-2.84.44-.31.93-.55 1.45-.69.45-.11.9-.17 1.35-.17Z"/>
+                    </svg>
+                    Latest TikTok creator Videos (@{artist.tiktokUsername})
+                  </h3>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {[
+                      {
+                        id: "tt_v1",
+                        title: "Behind the scenes in the studio making my new album loop! 🎧🔥",
+                        views: "242.5K",
+                        likes: "42.1K",
+                        duration: "0:30",
+                        videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-young-man-playing-music-on-synthesizer-in-studio-41712-large.mp4",
+                        coverUrl: "https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=400&q=80"
+                      },
+                      {
+                        id: "tt_v2",
+                        title: "Unboxing my new analog synth rig, this thing is a monster! 🎹🎚️",
+                        views: "128.9K",
+                        likes: "22.4K",
+                        duration: "0:45",
+                        videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-producer-working-at-soundboard-in-studio-41707-large.mp4",
+                        coverUrl: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&q=80"
+                      },
+                      {
+                        id: "tt_v3",
+                        title: "Visualizer test for the leading single. Let me know what you think! 🌌💫",
+                        views: "85.2K",
+                        likes: "15.8K",
+                        duration: "0:15",
+                        videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-disc-jockey-mixing-music-on-soundboard-41708-large.mp4",
+                        coverUrl: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&q=80"
+                      }
+                    ].map((v) => (
+                      <div 
+                        key={v.id}
+                        className="bg-black border border-white/5 rounded-2xl overflow-hidden hover:border-pink-500/30 transition-all group flex flex-col justify-between"
+                      >
+                        <div className="relative aspect-[9/16] bg-zinc-900 overflow-hidden">
+                          <video 
+                            src={v.videoUrl} 
+                            poster={v.coverUrl}
+                            className="w-full h-full object-cover cursor-pointer"
+                            loop
+                            muted
+                            playsInline
+                            onMouseEnter={(e) => {
+                              try {
+                                e.currentTarget.play();
+                              } catch (err) {}
+                            }}
+                            onMouseLeave={(e) => {
+                              try {
+                                e.currentTarget.pause();
+                              } catch (err) {}
+                            }}
+                          />
+                          
+                          <div className="absolute inset-0 bg-black/35 opacity-100 group-hover:opacity-0 transition-opacity flex flex-col justify-between p-3.5 pointer-events-none">
+                            <span className="self-end bg-pink-500 text-white text-[8px] font-mono font-black px-1.5 py-0.5 rounded-md uppercase tracking-wide">
+                              Hover to Play
+                            </span>
+                            <div className="space-y-1">
+                              <p className="text-[10px] text-zinc-100 font-sans font-bold leading-snug line-clamp-2">
+                                {v.title}
+                              </p>
+                              <div className="flex items-center gap-2.5 text-[9px] font-mono text-zinc-350">
+                                <span>👁️ {v.views}</span>
+                                <span>❤️ {v.likes}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

@@ -39,10 +39,16 @@ import {
   Sun,
   Inbox,
   Award as PremiumIcon,
-  Check
+  Check,
+  Download,
+  Gamepad2,
+  Building
 } from "lucide-react";
-import { User } from "../types";
+import { User, Song, Artist, Playlist } from "../types";
 import { admob } from "../lib/admob";
+import { analytics } from "../lib/analytics";
+import { doc, updateDoc, deleteField, collection, query, where, getDocs } from "firebase/firestore";
+import { db, uploadProfilePicture } from "../lib/firebase";
 import { motion, AnimatePresence } from "motion/react";
 // @ts-ignore
 import logoUrl from "../assets/images/soundstream_logo_1782150206757.jpg";
@@ -57,6 +63,18 @@ interface NavigationProps {
   isAdmin?: boolean;
   onWatchRewardedAd?: () => void;
   setLibraryTabSection?: (section: string) => void;
+  isInstallable?: boolean;
+  isAppInstalled?: boolean;
+  onInstall?: () => void;
+  isAndroid?: boolean;
+  isIOS?: boolean;
+  onShowIOSPrompt?: () => void;
+  playlists?: Playlist[];
+  songs?: Song[];
+  artists?: Artist[];
+  favorites?: string[];
+  followingArtists?: string[];
+  recentlyPlayed?: { songId: string; playedAt: string }[];
 }
 
 export default function Navigation({
@@ -68,7 +86,19 @@ export default function Navigation({
   onBecomeArtist,
   isAdmin = false,
   onWatchRewardedAd,
-  setLibraryTabSection
+  setLibraryTabSection,
+  isInstallable = false,
+  isAppInstalled = false,
+  onInstall,
+  isAndroid = false,
+  isIOS = false,
+  onShowIOSPrompt,
+  playlists = [],
+  songs = [],
+  artists = [],
+  favorites = [],
+  followingArtists = [],
+  recentlyPlayed = []
 }: NavigationProps) {
   const [imgError, setImgError] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -86,6 +116,189 @@ export default function Navigation({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [audioQuality, setAudioQuality] = useState("High Fidelity (320kbps)");
 
+  // SoundStream Profile system states
+  const [editDisplayName, setEditDisplayName] = useState("");
+  const [editUsername, setEditUsername] = useState("");
+  const [editBio, setEditBio] = useState("");
+  const [editCountry, setEditCountry] = useState("");
+  const [editWebsite, setEditWebsite] = useState("");
+  const [isPrivateProfile, setIsPrivateProfile] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
+  const [settingsTab, setSettingsTab] = useState<"view" | "edit" | "system">("view");
+  const [initiatingDonation, setInitiatingDonation] = useState(false);
+
+  const handleInitiateDonationSidebar = async () => {
+    if (!currentUser) return;
+    setInitiatingDonation(true);
+    try {
+      const response = await fetch("/api/stripe/create-checkout-session", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: currentUser.uid,
+          email: currentUser.email || "",
+          packageId: "donation",
+          amount: 15.00,
+          customName: "SoundStream Support Donation"
+        }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || "Failed to establish checkout session.");
+      }
+
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error("Stripe checkout URL is missing.");
+      }
+    } catch (err: any) {
+      console.error("❌ Stripe donation error:", err);
+      alert(err.message || "Failed to initiate secure donation. Please try again from the Legal & Support tab.");
+      setInitiatingDonation(false);
+    }
+  };
+
+  useEffect(() => {
+    if (currentUser) {
+      setEditDisplayName(currentUser.displayName || currentUser.username || "");
+      setEditUsername(currentUser.username || "");
+      setEditBio(currentUser.bio || "");
+      setEditCountry(currentUser.country || "");
+      setEditWebsite(currentUser.website || "");
+      setIsPrivateProfile(currentUser.isPrivate || false);
+    }
+  }, [currentUser, showSettings]);
+
+  const isValidUrl = (url: string): boolean => {
+    if (!url) return true;
+    let testUrl = url;
+    if (!/^https?:\/\//i.test(url)) {
+      testUrl = 'https://' + url;
+    }
+    try {
+      const parsed = new URL(testUrl);
+      return parsed.hostname.includes('.') && parsed.hostname.length >= 4;
+    } catch (_) {
+      return false;
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!currentUser || !e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+    
+    setUploadingImage(true);
+    setProfileError(null);
+    setProfileSuccess(null);
+
+    try {
+      const downloadURL = await uploadProfilePicture(currentUser.uid, file);
+      
+      const userRef = doc(db, "users", currentUser.uid);
+      await updateDoc(userRef, {
+        photoURL: downloadURL,
+        updatedAt: new Date().toISOString()
+      });
+
+      setProfileSuccess("Profile picture updated successfully!");
+      triggerToast("New profile picture applied.");
+    } catch (err: any) {
+      console.error("Error uploading profile image:", err);
+      setProfileError(err.message || "Failed to upload image.");
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!currentUser) return;
+    setSavingProfile(true);
+    setProfileError(null);
+    setProfileSuccess(null);
+
+    if (!editDisplayName.trim()) {
+      setProfileError("Display name cannot be empty.");
+      setSavingProfile(false);
+      return;
+    }
+
+    const cleanUsername = editUsername.trim();
+    if (!cleanUsername) {
+      setProfileError("Username cannot be empty.");
+      setSavingProfile(false);
+      return;
+    }
+
+    if (editWebsite.trim() && !isValidUrl(editWebsite.trim())) {
+      setProfileError("Please enter a valid website URL (e.g. https://example.com).");
+      setSavingProfile(false);
+      return;
+    }
+
+    try {
+      if (cleanUsername.toLowerCase() !== currentUser.username.toLowerCase()) {
+        const usersRef = collection(db, "users");
+        const qLowercase = query(usersRef, where("username_lowercase", "==", cleanUsername.toLowerCase()));
+        const snapLowercase = await getDocs(qLowercase);
+        
+        let taken = false;
+        snapLowercase.forEach((doc) => {
+          if (doc.id !== currentUser.uid) taken = true;
+        });
+
+        if (taken) {
+          setProfileError(`The username "${cleanUsername}" is already taken. Please try another one.`);
+          setSavingProfile(false);
+          return;
+        }
+
+        const qStandard = query(usersRef, where("username", "==", cleanUsername));
+        const snapStandard = await getDocs(qStandard);
+        snapStandard.forEach((doc) => {
+          if (doc.id !== currentUser.uid) taken = true;
+        });
+
+        if (taken) {
+          setProfileError(`The username "${cleanUsername}" is already taken. Please try another one.`);
+          setSavingProfile(false);
+          return;
+        }
+      }
+
+      const userRef = doc(db, "users", currentUser.uid);
+      await updateDoc(userRef, {
+        displayName: editDisplayName.trim(),
+        username: cleanUsername,
+        username_lowercase: cleanUsername.toLowerCase(),
+        bio: editBio.trim(),
+        country: editCountry.trim(),
+        website: editWebsite.trim(),
+        isPrivate: isPrivateProfile,
+        updatedAt: new Date().toISOString()
+      });
+
+      setProfileSuccess("Profile updated successfully!");
+      triggerToast("Profile changes saved to cloud.");
+      setTimeout(() => {
+        setSettingsTab("view");
+        setProfileSuccess(null);
+      }, 1500);
+    } catch (err: any) {
+      console.error("Error saving user profile:", err);
+      setProfileError(`Failed to save changes: ${err.message || err}`);
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
   // Auto-dismiss toast
   useEffect(() => {
     if (toastMessage) {
@@ -97,6 +310,92 @@ export default function Navigation({
   const triggerToast = (msg: string) => {
     setToastMessage(msg);
   };
+
+  const handleLinkTikTok = async () => {
+    if (!currentUser) return;
+    try {
+      const response = await fetch(`/api/auth/tiktok/url?userId=${currentUser.uid}&isArtist=${isArtist}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch TikTok link URL.");
+      }
+      const { url } = await response.json();
+      const width = 580;
+      const height = 700;
+      const left = window.screen.width / 2 - width / 2;
+      const top = window.screen.height / 2 - height / 2;
+      const popup = window.open(
+        url,
+        "tiktok_link_popup",
+        `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,status=yes`
+      );
+      if (!popup) {
+        setToastMessage("Please allow popups for this site to link with TikTok.");
+      }
+    } catch (error: any) {
+      setToastMessage(error.message || "TikTok linking failed.");
+    }
+  };
+
+  const handleUnlinkTikTok = async () => {
+    if (!currentUser) return;
+    try {
+      const userRef = doc(db, "users", currentUser.uid);
+      await updateDoc(userRef, {
+        tiktokId: deleteField(),
+        tiktokUsername: deleteField(),
+        tiktokAccessToken: deleteField()
+      });
+
+      if (isArtist) {
+        const artistRef = doc(db, "artists", currentUser.uid);
+        await updateDoc(artistRef, {
+          tiktokId: deleteField(),
+          tiktokUsername: deleteField()
+        });
+      }
+
+      setToastMessage("TikTok account unlinked successfully.");
+    } catch (error: any) {
+      console.error("Failed to unlink TikTok:", error);
+      setToastMessage("Failed to unlink TikTok account.");
+    }
+  };
+
+  useEffect(() => {
+    const handleTikTokLinkMessage = async (event: MessageEvent) => {
+      if (event.data?.type === "TIKTOK_AUTH_SUCCESS") {
+        const { openId, username, accessToken, userId, isArtist: authIsArtist } = event.data.data;
+        if (!userId || !currentUser || userId !== currentUser.uid) return;
+
+        try {
+          // 1. Update user profile
+          const userRef = doc(db, "users", currentUser.uid);
+          await updateDoc(userRef, {
+            tiktokId: openId,
+            tiktokUsername: username,
+            tiktokAccessToken: accessToken
+          });
+
+          // 2. Update artist profile if registered
+          if (isArtist || authIsArtist) {
+            const artistRef = doc(db, "artists", currentUser.uid);
+            await updateDoc(artistRef, {
+              tiktokId: openId,
+              tiktokUsername: username
+            });
+          }
+
+          setToastMessage(`Successfully connected @${username}!`);
+        } catch (error: any) {
+          console.error("Failed to update Firestore with TikTok details:", error);
+          setToastMessage("Failed to connect TikTok account.");
+        }
+      }
+    };
+
+    window.addEventListener("message", handleTikTokLinkMessage);
+    return () => window.removeEventListener("message", handleTikTokLinkMessage);
+  }, [currentUser, isArtist]);
 
   // Helper to determine the single active role
   const getActiveRole = () => {
@@ -141,6 +440,14 @@ export default function Navigation({
   // 1. LISTENER MENU ITEMS
   const listenerMenuItems = [
     { id: "home", label: "Home Feed", icon: Home, action: () => handleNavigation("home") },
+    { id: "shorts", label: "Shorts Feed", icon: Video, action: () => handleNavigation("shorts") },
+    { id: "live", label: "Live Streaming", icon: Radio, action: () => handleNavigation("live") },
+    { id: "games", label: "Games Center", icon: Gamepad2, action: () => handleNavigation("games") },
+    { id: "agency", label: "Agency & Record Label", icon: Building, action: () => handleNavigation("agency") },
+    { id: "ads", label: "Ads Manager", icon: Megaphone, action: () => handleNavigation("ads") },
+    { id: "wallet", label: "My Wallet", icon: CreditCard, action: () => handleNavigation("wallet") },
+    { id: "leaderboards", label: "Leaderboards", icon: PremiumIcon, action: () => handleNavigation("leaderboards") },
+    { id: "chat", label: "Messages", icon: MessageSquare, action: () => handleNavigation("chat") },
     { id: "search", label: "Browse & Search", icon: Search, action: () => handleNavigation("search") },
     { id: "trending", label: "Trending", icon: TrendingUp, action: () => handleNavigation("trending") },
     { id: "playlists", label: "My Playlists", icon: Disc, action: () => handleNavigation("library", undefined, "playlists") },
@@ -156,6 +463,15 @@ export default function Navigation({
   // 2. ARTIST MENU ITEMS
   const artistMenuItems = [
     { id: "dashboard", label: "Artist Dashboard", icon: Radio, action: () => handleNavigation("upload", "manager") },
+    { id: "live", label: "Live Streaming", icon: Radio, action: () => handleNavigation("live") },
+    { id: "games", label: "Games Center", icon: Gamepad2, action: () => handleNavigation("games") },
+    { id: "agency", label: "Agency & Record Label", icon: Building, action: () => handleNavigation("agency") },
+    { id: "ads", label: "Ads Manager", icon: Megaphone, action: () => handleNavigation("ads") },
+    { id: "creator-hub", label: "Creator Studio", icon: PremiumIcon, action: () => handleNavigation("creator-hub") },
+    { id: "wallet", label: "My Wallet", icon: CreditCard, action: () => handleNavigation("wallet") },
+    { id: "leaderboards", label: "Leaderboards", icon: Award, action: () => handleNavigation("leaderboards") },
+    { id: "shorts", label: "Shorts Feed", icon: Video, action: () => handleNavigation("shorts") },
+    { id: "chat", label: "Messages", icon: MessageSquare, action: () => handleNavigation("chat") },
     { id: "upload", label: "Upload Music", icon: Upload, action: () => handleNavigation("upload", "upload") },
     { id: "upload-video", label: "Upload Videos", icon: Video, action: () => handleNavigation("upload", "upload") },
     { id: "analytics", label: "Analytics", icon: BarChart3, action: () => handleNavigation("upload", "manager") },
@@ -169,12 +485,15 @@ export default function Navigation({
   // 3. ADMIN MENU ITEMS
   const adminMenuItems = [
     { id: "admin-hq", label: "Admin HQ", icon: ShieldCheck, action: () => handleNavigation("admin", "dashboard") },
+    { id: "games", label: "Games Center", icon: Gamepad2, action: () => handleNavigation("games") },
+    { id: "agency", label: "Agency & Record Label", icon: Building, action: () => handleNavigation("agency") },
+    { id: "ads", label: "Ads Manager", icon: Megaphone, action: () => handleNavigation("ads") },
     { id: "users", label: "User Management", icon: Users, action: () => handleNavigation("admin", "users") },
     { id: "moderation", label: "Content Moderation", icon: AlertTriangle, action: () => handleNavigation("admin", "reports") },
     { id: "verification", label: "Artist Verification", icon: UserCheck, action: () => handleNavigation("admin", "artists") },
     { id: "analytics", label: "Platform Analytics", icon: BarChart3, action: () => handleNavigation("admin", "analytics") },
     { id: "subscriptions", label: "Subscription Management", icon: CreditCard, action: () => handleNavigation("admin", "monetization") },
-    { id: "ads", label: "Advertisements", icon: Megaphone, action: () => handleNavigation("admin", "monetization") },
+    { id: "admin-ads", label: "Advertisements", icon: Megaphone, action: () => handleNavigation("admin", "monetization") },
     { id: "settings", label: "Platform Settings", icon: Settings, action: () => handleNavigation("admin", "settings") },
     { id: "android", label: "Android Releases", icon: Smartphone, action: () => handleNavigation("admin", "android") },
     { id: "manage-admins", label: "Manage Admins", icon: Lock, action: () => handleNavigation("admin", "users") },
@@ -185,9 +504,53 @@ export default function Navigation({
 
   // Get current active menu list
   const getActiveMenuItems = () => {
-    if (isAdmin) return adminMenuItems;
-    if (isArtist) return artistMenuItems;
-    return listenerMenuItems;
+    let baseItems = [];
+    if (isAdmin) baseItems = [...adminMenuItems];
+    else if (isArtist) baseItems = [...artistMenuItems];
+    else baseItems = [...listenerMenuItems];
+
+    const items = [...baseItems];
+
+    if (!isAppInstalled) {
+      if (isInstallable) {
+        items.push({
+          id: "install-pwa",
+          label: "Install SoundStreamy",
+          icon: Smartphone,
+          action: () => {
+            if (onInstall) onInstall();
+          }
+        });
+      } else if (isAndroid) {
+        items.push({
+          id: "download-apk",
+          label: "Download Android App",
+          icon: Download,
+          action: () => {
+            // Track APK download event as a conversion
+            analytics.trackEvent("apk_download", currentUser?.uid || "anonymous", currentUser?.email || "anonymous", {
+              fileName: "Soundstream.apk"
+            });
+            const link = document.createElement("a");
+            link.href = "/Soundstream.apk";
+            link.download = "Soundstream.apk";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }
+        });
+      } else if (isIOS) {
+        items.push({
+          id: "install-ios",
+          label: "Install SoundStreamy",
+          icon: Smartphone,
+          action: () => {
+            if (onShowIOSPrompt) onShowIOSPrompt();
+          }
+        });
+      }
+    }
+    return items;
   };
 
   const activeMenuItems = getActiveMenuItems();
@@ -658,80 +1021,556 @@ export default function Navigation({
 
       {/* Settings Modal */}
       <AnimatePresence>
-        {showSettings && (
-          <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-zinc-950 border border-white/10 rounded-2xl w-full max-w-md p-6 relative shadow-2xl"
-            >
-              <button 
-                onClick={() => setShowSettings(false)}
-                className="absolute top-4 right-4 p-1 bg-white/5 hover:bg-white/10 rounded-lg text-zinc-400 hover:text-white border-none cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-              
-              <h3 className="text-sm font-sans font-black uppercase tracking-wider text-white flex items-center gap-2 mb-4">
-                <Settings className="w-4 h-4 text-indigo-400" />
-                <span>User Account Settings</span>
-              </h3>
-              
-              <div className="space-y-4">
-                {/* Streaming Quality */}
-                <div>
-                  <label className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold block mb-1">Lossless Audio Quality</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {["High Fidelity (320kbps)", "Studio Master (Lossless)"].map((q) => (
-                      <button
-                        key={q}
-                        onClick={() => {
-                          setAudioQuality(q);
-                          triggerToast(`Audio engine configured to ${q}`);
-                        }}
-                        className={`p-2.5 rounded-xl border text-[10px] font-bold text-center transition-all cursor-pointer ${
-                          audioQuality === q 
-                            ? "bg-indigo-600/10 border-indigo-500 text-indigo-300" 
-                            : "bg-white/5 border-white/5 text-zinc-400 hover:bg-white/10"
-                        }`}
-                      >
-                        {q}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+        {showSettings && currentUser && (() => {
+          const likedSongsList = songs.filter((s) => favorites.includes(s.id)).slice(0, 5);
+          const recentlyPlayedList = recentlyPlayed
+            .map((rp) => songs.find((s) => s.id === rp.songId))
+            .filter((s): s is Song => !!s)
+            .slice(0, 5);
 
-                {/* Local Cache Cleaner */}
-                <div>
-                  <label className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold block mb-1">Local Storage Sandbox</label>
-                  <button 
-                    onClick={() => triggerToast("Device Audio Buffer Cache purged successfully (0 bytes).")}
-                    className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white text-xs font-semibold py-2.5 rounded-xl transition-all cursor-pointer"
+          return (
+            <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+              <motion.div 
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="bg-zinc-950 border border-white/10 rounded-3xl w-full max-w-lg p-6 relative shadow-2xl flex flex-col max-h-[90vh]"
+              >
+                <button 
+                  onClick={() => {
+                    setShowSettings(false);
+                    setSettingsTab("view");
+                    setProfileError(null);
+                    setProfileSuccess(null);
+                  }}
+                  className="absolute top-5 right-5 p-1.5 bg-white/5 hover:bg-white/10 rounded-xl text-zinc-400 hover:text-white border-none cursor-pointer z-10"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+                
+                <h3 className="text-xs font-sans font-black uppercase tracking-widest text-white flex items-center gap-2 mb-4 shrink-0">
+                  <Settings className="w-4 h-4 text-indigo-400 animate-spin-slow" />
+                  <span>Profile & Application Settings</span>
+                </h3>
+
+                {/* Tab Navigation header */}
+                <div className="flex border-b border-white/5 mb-4 shrink-0">
+                  <button
+                    onClick={() => {
+                      setSettingsTab("view");
+                      setProfileError(null);
+                      setProfileSuccess(null);
+                    }}
+                    className={`flex-1 pb-2 text-xs font-black uppercase tracking-wider transition-all cursor-pointer border-b-2 ${
+                      settingsTab === "view"
+                        ? "border-indigo-500 text-white font-black"
+                        : "border-transparent text-zinc-550 hover:text-zinc-300"
+                    }`}
                   >
-                    Clean Cached Metadata & Assets
+                    My Profile
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSettingsTab("edit");
+                      setProfileError(null);
+                      setProfileSuccess(null);
+                    }}
+                    className={`flex-1 pb-2 text-xs font-black uppercase tracking-wider transition-all cursor-pointer border-b-2 ${
+                      settingsTab === "edit"
+                        ? "border-indigo-500 text-white font-black"
+                        : "border-transparent text-zinc-550 hover:text-zinc-300"
+                    }`}
+                  >
+                    Edit Details
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSettingsTab("system");
+                      setProfileError(null);
+                      setProfileSuccess(null);
+                    }}
+                    className={`flex-1 pb-2 text-xs font-black uppercase tracking-wider transition-all cursor-pointer border-b-2 ${
+                      settingsTab === "system"
+                        ? "border-indigo-500 text-white font-black"
+                        : "border-transparent text-zinc-550 hover:text-zinc-300"
+                    }`}
+                  >
+                    Preferences
                   </button>
                 </div>
 
-                {/* Identity info */}
-                {currentUser && (
-                  <div className="bg-zinc-900/40 p-3 rounded-xl border border-white/5 space-y-1">
-                    <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Authenticated Identity</p>
-                    <p className="text-xs text-zinc-200">UID: <span className="font-mono text-[10px] text-zinc-500">{currentUser.uid}</span></p>
-                    <p className="text-xs text-zinc-200">Register: <span className="font-mono text-[10px] text-zinc-500">{new Date(currentUser.createdAt).toLocaleDateString()}</span></p>
-                  </div>
-                )}
-              </div>
-              
-              <button 
-                onClick={() => setShowSettings(false)}
-                className="w-full mt-5 bg-indigo-650 hover:bg-indigo-600 text-white font-bold py-2 rounded-xl text-xs border-none cursor-pointer"
-              >
-                Save & Close
-              </button>
-            </motion.div>
-          </div>
-        )}
+                <div className="flex-1 overflow-y-auto pr-1">
+                  {settingsTab === "view" && (
+                    <div className="space-y-4 py-1">
+                      {/* Header Section */}
+                      <div className="flex items-center gap-4 bg-white/2 p-3.5 rounded-2xl border border-white/5">
+                        <div className="relative shrink-0">
+                          <img
+                            src={currentUser.photoURL || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&q=80"}
+                            alt="Profile"
+                            className="w-16 h-16 rounded-full object-cover border-2 border-indigo-500/30 shadow-md"
+                          />
+                          {currentUser.isVerified && (
+                            <span className="absolute -bottom-1 -right-1 bg-indigo-600 border border-zinc-950 text-white p-0.5 rounded-full flex items-center justify-center shadow-lg" title="Verified Creator">
+                              <CheckCircle2 className="w-3.5 h-3.5 fill-white text-indigo-600" />
+                            </span>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <h4 className="text-sm font-black text-white truncate mb-0 leading-tight">
+                              {currentUser.displayName || currentUser.username}
+                            </h4>
+                            {currentUser.isVerified && (
+                              <CheckCircle2 className="w-4 h-4 text-indigo-400 fill-indigo-400/10 shrink-0" title="Verified Independent Creator" />
+                            )}
+                          </div>
+                          <p className="text-xs text-zinc-400 font-mono mt-0.5 mb-1">@{currentUser.username}</p>
+                          
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <span className={`text-[8px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                              currentUser.role === "admin" 
+                                ? "bg-red-500/10 text-red-400 border border-red-500/20" 
+                                : currentUser.role === "artist" 
+                                ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20" 
+                                : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                            }`}>
+                              {currentUser.role}
+                            </span>
+                            {currentUser.isPrivate ? (
+                              <span className="text-[8px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider bg-zinc-800 text-zinc-450 border border-white/5 flex items-center gap-0.5">
+                                <Lock className="w-2 h-2" /> Private
+                              </span>
+                            ) : (
+                              <span className="text-[8px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                                Public
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Metrics Grid */}
+                      <div className="grid grid-cols-4 gap-2 text-center bg-zinc-900/40 p-3 rounded-2xl border border-white/5 shrink-0">
+                        <div>
+                          <p className="font-mono text-xs font-black text-white leading-none">
+                            {currentUser.followersCount || 0}
+                          </p>
+                          <p className="text-[8px] text-zinc-500 uppercase tracking-widest font-bold mt-1">Followers</p>
+                        </div>
+                        <div>
+                          <p className="font-mono text-xs font-black text-white leading-none">
+                            {currentUser.followingCount || followingArtists.length || 0}
+                          </p>
+                          <p className="text-[8px] text-zinc-500 uppercase tracking-widest font-bold mt-1">Following</p>
+                        </div>
+                        <div>
+                          <p className="font-mono text-xs font-black text-white leading-none">
+                            {playlists.filter(p => p.ownerId === currentUser.uid || p.userId === currentUser.uid).length}
+                          </p>
+                          <p className="text-[8px] text-zinc-500 uppercase tracking-widest font-bold mt-1">Playlists</p>
+                        </div>
+                        <div>
+                          <p className="font-mono text-xs font-black text-white leading-none">
+                            {favorites.length}
+                          </p>
+                          <p className="text-[8px] text-zinc-500 uppercase tracking-widest font-bold mt-1">Likes</p>
+                        </div>
+                      </div>
+
+                      {/* Biography & Metadata Section */}
+                      <div className="space-y-2 bg-zinc-900/20 p-3.5 rounded-2xl border border-white/5 text-xs text-zinc-300">
+                        {currentUser.bio ? (
+                          <div className="mb-2">
+                            <span className="text-[8px] uppercase tracking-wider text-zinc-500 font-extrabold block mb-1">Biography</span>
+                            <p className="leading-relaxed text-zinc-350 whitespace-pre-line">{currentUser.bio}</p>
+                          </div>
+                        ) : (
+                          <div className="mb-2">
+                            <span className="text-[8px] uppercase tracking-wider text-zinc-500 font-extrabold block mb-1">Biography</span>
+                            <p className="text-zinc-550 italic leading-relaxed">No biography added yet. Click 'Edit Details' to introduce yourself to the community.</p>
+                          </div>
+                        )}
+                        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5">
+                          <div>
+                            <span className="text-[8px] uppercase tracking-wider text-zinc-500 font-extrabold block">Location / Country</span>
+                            <p className="text-zinc-200 mt-1 font-semibold">{currentUser.country || "Global Space"}</p>
+                          </div>
+                          <div>
+                            <span className="text-[8px] uppercase tracking-wider text-zinc-500 font-extrabold block">Personal Website</span>
+                            {currentUser.website ? (
+                              <a
+                                href={currentUser.website.startsWith('http') ? currentUser.website : `https://${currentUser.website}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-indigo-400 hover:text-indigo-300 transition-colors font-semibold flex items-center gap-1 mt-1 break-all truncate"
+                              >
+                                {currentUser.website}
+                              </a>
+                            ) : (
+                              <p className="text-zinc-550 mt-1 italic">Not set</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="pt-2.5 border-t border-white/5 flex items-center justify-between text-[9px] text-zinc-500 font-bold uppercase tracking-wider">
+                          <span>Joined SoundStream</span>
+                          <span className="font-mono font-black text-zinc-400">{new Date(currentUser.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+                        </div>
+                      </div>
+
+                      {/* Linked Accounts */}
+                      <div className="space-y-2">
+                        <span className="text-[8px] uppercase tracking-wider text-zinc-500 font-extrabold block">Linked Auth Provider Connections</span>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="bg-zinc-900/40 border border-white/5 p-2.5 rounded-xl flex items-center gap-2">
+                            <div className="w-5 h-5 bg-emerald-500/10 text-emerald-400 rounded-lg flex items-center justify-center shrink-0">
+                              <Check className="w-3.5 h-3.5" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-[8px] uppercase tracking-wider text-zinc-500 font-bold">Google Auth</p>
+                              <p className="text-[10px] text-emerald-455 font-black truncate">Active Integration</p>
+                            </div>
+                          </div>
+                          <div className="bg-zinc-900/40 border border-white/5 p-2.5 rounded-xl flex items-center gap-2">
+                            <div className={`w-5 h-5 rounded-lg flex items-center justify-center shrink-0 ${
+                              currentUser.tiktokUsername ? "bg-pink-500/10 text-pink-400" : "bg-zinc-800 text-zinc-550"
+                            }`}>
+                              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.02 1.59 4.19a8.1 8.1 0 0 0 3.93 2.45v3.91c-.88-.08-1.75-.32-2.58-.66a8.04 8.04 0 0 1-3.1-2.28c-.06 2.3-.01 4.59-.02 6.89-.04 1.34-.33 2.7-.93 3.89a7.33 7.33 0 0 1-4.71 4.14c-1.63.49-3.41.48-5.02-.1a7.35 7.35 0 0 1-4.14-4.52c-.52-1.57-.45-3.32.19-4.83a7.32 7.32 0 0 1 4.88-4.27V12.7a3.42 3.42 0 0 0-2.07 1.37 3.44 3.44 0 0 0-.42 3.04 3.42 3.42 0 0 0 2.76 2.3c.96.1 1.95-.15 2.72-.75.83-.65 1.29-1.67 1.28-2.72.03-3.99.01-7.98.02-11.97-.01-.32.03-.64.12-.95.27-1.14.94-2.15 1.88-2.84.44-.31.93-.55 1.45-.69.45-.11.9-.17 1.35-.17Z"/>
+                              </svg>
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-[8px] uppercase tracking-wider text-zinc-500 font-bold">TikTok Auth</p>
+                              <p className={`text-[10px] font-black truncate ${currentUser.tiktokUsername ? "text-pink-400" : "text-zinc-550"}`}>
+                                {currentUser.tiktokUsername ? `@${currentUser.tiktokUsername}` : "Unavailable"}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Recently Played Songs List */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[8px] uppercase tracking-wider text-zinc-400 font-extrabold block">Recently Played Tracks</span>
+                          <span className="text-[8px] text-zinc-500 font-mono font-black uppercase tracking-wider">LATEST 5</span>
+                        </div>
+                        {recentlyPlayedList.length === 0 ? (
+                          <p className="text-[10px] text-zinc-555 bg-zinc-900/10 p-3 rounded-2xl text-center border border-dashed border-white/5 italic">No play history recorded in this workspace sandbox.</p>
+                        ) : (
+                          <div className="space-y-1.5">
+                            {recentlyPlayedList.map((song) => (
+                              <div key={`recent-row-${song.id}`} className="flex items-center gap-2.5 bg-zinc-900/30 hover:bg-zinc-900/60 p-2 rounded-xl border border-white/2 transition-colors min-w-0">
+                                <img src={song.coverUrl} alt={song.title} className="w-8 h-8 rounded-lg object-cover shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs font-bold text-white truncate leading-tight">{song.title}</p>
+                                  <p className="text-[10px] text-zinc-500 truncate mt-0.5">{song.artistName || "Independent Artist"}</p>
+                                </div>
+                                <span className="text-[8px] px-2 py-0.5 rounded bg-white/5 text-zinc-400 font-mono uppercase tracking-wider shrink-0 font-bold">Played</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Liked Songs List */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[8px] uppercase tracking-wider text-zinc-400 font-extrabold block">Liked & Favorite Tracks</span>
+                          <span className="text-[8px] text-zinc-500 font-mono font-black uppercase tracking-wider">LATEST 5</span>
+                        </div>
+                        {likedSongsList.length === 0 ? (
+                          <p className="text-[10px] text-zinc-555 bg-zinc-900/10 p-3 rounded-2xl text-center border border-dashed border-white/5 italic">No tracks marked as favorite yet.</p>
+                        ) : (
+                          <div className="space-y-1.5">
+                            {likedSongsList.map((song) => (
+                              <div key={`liked-row-${song.id}`} className="flex items-center gap-2.5 bg-zinc-900/30 hover:bg-zinc-900/60 p-2 rounded-xl border border-white/2 transition-colors min-w-0">
+                                <img src={song.coverUrl} alt={song.title} className="w-8 h-8 rounded-lg object-cover shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs font-bold text-white truncate leading-tight">{song.title}</p>
+                                  <p className="text-[10px] text-zinc-500 truncate mt-0.5">{song.artistName || "Independent Artist"}</p>
+                                </div>
+                                <div className="text-pink-500 shrink-0 pr-1">
+                                  <Heart className="w-3.5 h-3.5 fill-pink-500" />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {settingsTab === "edit" && (
+                    <div className="space-y-4 py-1">
+                      {profileError && (
+                        <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-2.5 rounded-xl text-xs font-bold">
+                          {profileError}
+                        </div>
+                      )}
+                      {profileSuccess && (
+                        <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-2.5 rounded-xl text-xs font-bold">
+                          {profileSuccess}
+                        </div>
+                      )}
+
+                      {/* Avatar Upload */}
+                      <div className="flex flex-col items-center gap-2 bg-zinc-900/30 p-3.5 rounded-2xl border border-white/5 shrink-0">
+                        <div className="relative shrink-0">
+                          <img
+                            src={currentUser.photoURL || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&q=80"}
+                            alt="Edit Avatar"
+                            className="w-16 h-16 rounded-full object-cover border-2 border-indigo-500/30 hover:border-indigo-500 transition-colors"
+                          />
+                          {uploadingImage && (
+                            <div className="absolute inset-0 bg-black/70 rounded-full flex items-center justify-center text-[8px] font-black text-white uppercase tracking-widest text-center">
+                              Uploading
+                            </div>
+                          )}
+                        </div>
+                        <label className="text-[9px] bg-white/5 hover:bg-white/10 text-zinc-350 px-3 py-1.5 rounded-lg border border-white/10 transition-all cursor-pointer font-black uppercase tracking-wider block">
+                          {uploadingImage ? "Processing..." : "Change Picture"}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageUpload}
+                            className="hidden"
+                            disabled={uploadingImage || savingProfile}
+                          />
+                        </label>
+                        <p className="text-[8px] text-zinc-550 font-bold uppercase tracking-wide">PNG, JPG, or JPEG up to 5MB</p>
+                      </div>
+
+                      {/* Display Name Input */}
+                      <div>
+                        <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-extrabold block mb-1">Display Name</label>
+                        <input
+                          type="text"
+                          value={editDisplayName}
+                          onChange={(e) => setEditDisplayName(e.target.value)}
+                          disabled={savingProfile}
+                          placeholder="e.g. Liam Fred"
+                          className="w-full bg-white/5 border border-white/5 focus:border-indigo-500/50 text-white rounded-xl py-2.5 px-3.5 text-xs outline-none transition-all font-sans"
+                        />
+                      </div>
+
+                      {/* Username Input */}
+                      <div>
+                        <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-extrabold block mb-1">Username (Unique handle)</label>
+                        <div className="relative">
+                          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-mono text-xs text-zinc-555 font-bold">@</span>
+                          <input
+                            type="text"
+                            value={editUsername}
+                            onChange={(e) => setEditUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
+                            disabled={savingProfile}
+                            placeholder="username"
+                            className="w-full bg-white/5 border border-white/5 focus:border-indigo-500/50 text-white rounded-xl py-2.5 pl-7 pr-3.5 text-xs outline-none transition-all font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Biography Input */}
+                      <div>
+                        <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-extrabold block mb-1">Biography</label>
+                        <textarea
+                          value={editBio}
+                          onChange={(e) => setEditBio(e.target.value)}
+                          disabled={savingProfile}
+                          placeholder="Introduce yourself to other listeners and creators..."
+                          rows={3}
+                          className="w-full bg-white/5 border border-white/5 focus:border-indigo-500/50 text-white rounded-xl py-2.5 px-3.5 text-xs outline-none transition-all resize-none font-sans"
+                        />
+                      </div>
+
+                      {/* Country Input */}
+                      <div>
+                        <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-extrabold block mb-1">Country</label>
+                        <input
+                          type="text"
+                          value={editCountry}
+                          onChange={(e) => setEditCountry(e.target.value)}
+                          disabled={savingProfile}
+                          placeholder="e.g. United Kingdom"
+                          className="w-full bg-white/5 border border-white/5 focus:border-indigo-500/50 text-white rounded-xl py-2.5 px-3.5 text-xs outline-none transition-all font-sans"
+                        />
+                      </div>
+
+                      {/* Website Input */}
+                      <div>
+                        <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-extrabold block mb-1">Personal Website</label>
+                        <input
+                          type="text"
+                          value={editWebsite}
+                          onChange={(e) => setEditWebsite(e.target.value)}
+                          disabled={savingProfile}
+                          placeholder="e.g. https://github.com/liam"
+                          className="w-full bg-white/5 border border-white/5 focus:border-indigo-500/50 text-white rounded-xl py-2.5 px-3.5 text-xs outline-none transition-all font-sans"
+                        />
+                      </div>
+
+                      {/* Privacy Toggle */}
+                      <div className="flex items-center justify-between bg-zinc-900/30 p-3.5 rounded-2xl border border-white/5">
+                        <div className="min-w-0 pr-2">
+                          <p className="text-[10px] text-zinc-300 font-extrabold uppercase tracking-wider">Private Account Profile</p>
+                          <p className="text-[8px] text-zinc-500 mt-0.5 leading-normal">Hide your liked song history and playlists list from searches.</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setIsPrivateProfile(!isPrivateProfile)}
+                          disabled={savingProfile}
+                          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                            isPrivateProfile ? "bg-indigo-600" : "bg-zinc-800"
+                          }`}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                              isPrivateProfile ? "translate-x-4" : "translate-x-0"
+                            }`}
+                          />
+                        </button>
+                      </div>
+
+                      {/* Save Changes Button */}
+                      <button
+                        type="button"
+                        onClick={handleSaveProfile}
+                        disabled={savingProfile || uploadingImage}
+                        className="w-full bg-indigo-650 hover:bg-indigo-600 disabled:bg-zinc-850 text-white text-xs font-black uppercase py-3 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 border-none shrink-0"
+                      >
+                        {savingProfile ? "Saving Profile Changes..." : "Save Profile Details"}
+                      </button>
+                    </div>
+                  )}
+
+                  {settingsTab === "system" && (
+                    <div className="space-y-4 py-1">
+                      {/* Streaming Quality */}
+                      <div>
+                        <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-extrabold block mb-1.5">Lossless Audio Quality</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {["High Fidelity (320kbps)", "Studio Master (Lossless)"].map((q) => (
+                            <button
+                              key={q}
+                              onClick={() => {
+                                setAudioQuality(q);
+                                triggerToast(`Audio engine configured to ${q}`);
+                              }}
+                              className={`p-3 rounded-xl border text-[10px] font-bold text-center transition-all cursor-pointer ${
+                                audioQuality === q 
+                                  ? "bg-indigo-600/10 border-indigo-500 text-indigo-300" 
+                                  : "bg-white/5 border-white/5 text-zinc-400 hover:bg-white/10"
+                              }`}
+                            >
+                              {q}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Local Cache Cleaner */}
+                      <div>
+                        <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-extrabold block mb-1.5">Local Storage Sandbox</label>
+                        <button 
+                          onClick={() => triggerToast("Device Audio Buffer Cache purged successfully (0 bytes).")}
+                          className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-350 hover:text-white text-xs font-bold uppercase py-3 rounded-xl transition-all cursor-pointer"
+                        >
+                          Clean Cached Metadata & Assets
+                        </button>
+                      </div>
+
+                      {/* TikTok Connection Section */}
+                      <div className="bg-zinc-900/40 p-3.5 rounded-2xl border border-white/5 space-y-2.5">
+                        <p className="text-[10px] text-zinc-300 font-black uppercase tracking-widest flex items-center gap-1.5">
+                          <svg className="w-3.5 h-3.5 text-pink-500" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.02 1.59 4.19a8.1 8.1 0 0 0 3.93 2.45v3.91c-.88-.08-1.75-.32-2.58-.66a8.04 8.04 0 0 1-3.1-2.28c-.06 2.3-.01 4.59-.02 6.89-.04 1.34-.33 2.7-.93 3.89a7.33 7.33 0 0 1-4.71 4.14c-1.63.49-3.41.48-5.02-.1a7.35 7.35 0 0 1-4.14-4.52c-.52-1.57-.45-3.32.19-4.83a7.32 7.32 0 0 1 4.88-4.27V12.7a3.42 3.42 0 0 0-2.07 1.37 3.44 3.44 0 0 0-.42 3.04 3.42 3.42 0 0 0 2.76 2.3c.96.1 1.95-.15 2.72-.75.83-.65 1.29-1.67 1.28-2.72.03-3.99.01-7.98.02-11.97-.01-.32.03-.64.12-.95.27-1.14.94-2.15 1.88-2.84.44-.31.93-.55 1.45-.69.45-.11.9-.17 1.35-.17Z"/>
+                          </svg>
+                          <span>TikTok Account Integration</span>
+                        </p>
+
+                        {currentUser.tiktokUsername ? (
+                          <div className="flex items-center justify-between bg-zinc-950/40 p-2.5 rounded-xl border border-pink-500/10 min-w-0">
+                            <div className="min-w-0 pr-2">
+                              <p className="text-[8px] text-zinc-500 font-extrabold uppercase tracking-wider">Connected Account</p>
+                              <p className="text-xs text-pink-400 font-extrabold font-mono truncate">@{currentUser.tiktokUsername}</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={handleUnlinkTikTok}
+                              className="px-3.5 py-1.5 bg-red-600/10 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/10 text-[9px] font-black uppercase rounded-lg transition-all cursor-pointer shrink-0"
+                            >
+                              Unlink
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <p className="text-[10px] text-zinc-500 leading-normal">
+                              Link your TikTok developer credentials to activate instant content synchronization and display video clips directly inside your creator spaces.
+                            </p>
+                            <button
+                              type="button"
+                              onClick={handleLinkTikTok}
+                              className="w-full bg-black hover:bg-zinc-950 text-white border border-white/10 hover:border-pink-500/50 py-3 px-4 text-[10px] font-black uppercase rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm shadow-pink-500/5"
+                            >
+                              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.02 1.59 4.19a8.1 8.1 0 0 0 3.93 2.45v3.91c-.88-.08-1.75-.32-2.58-.66a8.04 8.04 0 0 1-3.1-2.28c-.06 2.3-.01 4.59-.02 6.89-.04 1.34-.33 2.7-.93 3.89a7.33 7.33 0 0 1-4.71 4.14c-1.63.49-3.41.48-5.02-.1a7.35 7.35 0 0 1-4.14-4.52c-.52-1.57-.45-3.32.19-4.83a7.32 7.32 0 0 1 4.88-4.27V12.7a3.42 3.42 0 0 0-2.07 1.37 3.44 3.44 0 0 0-.42 3.04 3.42 3.42 0 0 0 2.76 2.3c.96.1 1.95-.15 2.72-.75.83-.65 1.29-1.67 1.28-2.72.03-3.99.01-7.98.02-11.97-.01-.32.03-.64.12-.95.27-1.14.94-2.15 1.88-2.84.44-.31.93-.55 1.45-.69.45-.11.9-.17 1.35-.17Z"/>
+                              </svg>
+                              <span>Connect TikTok Account</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Support SoundStream section */}
+                      <div className="bg-gradient-to-br from-indigo-950/20 to-zinc-900/40 p-3.5 rounded-2xl border border-indigo-500/10 space-y-2.5">
+                        <p className="text-[10px] text-rose-400 font-black uppercase tracking-widest flex items-center gap-1.5">
+                          <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500/10 animate-pulse" />
+                          <span>Support SoundStream</span>
+                        </p>
+                        <p className="text-[10px] text-zinc-400 leading-normal">
+                          Love SoundStream? Supporting our independent development is completely optional. Listeners, visitors, and registered users can all use SoundStream for FREE.
+                        </p>
+                        <button
+                          onClick={handleInitiateDonationSidebar}
+                          disabled={initiatingDonation}
+                          className="w-full bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white border border-rose-500/20 py-2.5 px-4 text-[10px] font-black uppercase rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                        >
+                          <Heart className="w-3 h-3" />
+                          <span>{initiatingDonation ? "Connecting secure gateway..." : "Support SoundStream"}</span>
+                        </button>
+                      </div>
+
+                      {/* Identity info */}
+                      <div className="bg-zinc-900/40 p-3.5 rounded-2xl border border-white/5 space-y-1.5 text-xs text-zinc-400 font-sans">
+                        <p className="text-[9px] text-zinc-500 font-extrabold uppercase tracking-widest">Authenticated User Identity</p>
+                        <div className="flex items-center justify-between">
+                          <span>User UID:</span>
+                          <span className="font-mono text-[10px] text-zinc-300 font-semibold">{currentUser.uid}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span>Register Date:</span>
+                          <span className="font-mono text-[10px] text-zinc-300 font-semibold">{new Date(currentUser.createdAt).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <button 
+                  onClick={() => {
+                    setShowSettings(false);
+                    setSettingsTab("view");
+                    setProfileError(null);
+                    setProfileSuccess(null);
+                  }}
+                  className="w-full mt-4 bg-[#1e1e20] hover:bg-[#2e2e32] border border-white/5 text-zinc-350 hover:text-white font-black py-2.5 rounded-xl text-xs uppercase tracking-wider cursor-pointer shrink-0 transition-all"
+                >
+                  Save & Close
+                </button>
+              </motion.div>
+            </div>
+          );
+        })()}
       </AnimatePresence>
 
       {/* Artist Comments Modal */}

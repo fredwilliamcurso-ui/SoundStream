@@ -65,6 +65,13 @@ service cloud.firestore {
         allow read: if isAdmin() || isOwner(userId);
         allow create: if isOwner(userId) && !isSuspended();
       }
+
+      // Monetization notifications nested collection
+      match /monetization_notifications/{notifId} {
+        allow read: if isAdmin() || isOwner(userId);
+        allow create: if isOwner(userId) && !isSuspended();
+        allow update, delete: if isAdmin() || isOwner(userId);
+      }
     }
 
     // Artists collection
@@ -85,7 +92,7 @@ service cloud.firestore {
         (!resource.data.keys().hasAll(['isSuspended']) || request.resource.data.isSuspended == resource.data.isSuspended) &&
         (!resource.data.keys().hasAll(['isFeatured']) || request.resource.data.isFeatured == resource.data.isFeatured) &&
         (
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['artistName', 'bio', 'profilePhoto', 'followersCount']) ||
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['artistName', 'bio', 'profilePhoto', 'followersCount', 'tiktokId', 'tiktokUsername']) ||
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followersCount'])
         )
       );
@@ -182,6 +189,428 @@ service cloud.firestore {
     match /analytics_events/{eventId} {
       allow read, update, delete: if isAdmin();
       allow create: if true; // Allow anonymous and signed-in events logging
+    }
+
+    // Conversations & Messages collections
+    match /conversations/{conversationId} {
+      allow read: if isSignedIn() && request.auth.uid in resource.data.members;
+      allow create: if isSignedIn() && request.auth.uid in request.resource.data.members;
+      allow update: if isSignedIn() && request.auth.uid in resource.data.members;
+      allow delete: if isAdmin();
+
+      match /messages/{messageId} {
+        allow read: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.members;
+        allow create: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.members;
+        allow update: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.members;
+        allow delete: if isAdmin();
+      }
+    }
+
+    // Live Streams & Live Chats
+    match /liveStreams/{streamId} {
+      allow read: if true;
+      allow create: if isSignedIn() && !isSuspended();
+      allow update: if isSignedIn() && !isSuspended() && (resource.data.creatorId == request.auth.uid || isAdmin() || request.resource.data.creatorId == request.auth.uid);
+      allow delete: if isAdmin() || (isSignedIn() && resource.data.creatorId == request.auth.uid);
+
+      match /chat/{messageId} {
+        allow read: if true;
+        allow create: if isSignedIn() && !isSuspended();
+        allow update: if isSignedIn() && !isSuspended() && (resource.data.senderId == request.auth.uid || isAdmin() || get(/databases/$(database)/documents/liveStreams/$(streamId)).data.creatorId == request.auth.uid);
+        allow delete: if isSignedIn() && !isSuspended() && (resource.data.senderId == request.auth.uid || isAdmin() || get(/databases/$(database)/documents/liveStreams/$(streamId)).data.creatorId == request.auth.uid);
+      }
+
+      match /reactions/{reactionId} {
+        allow read: if true;
+        allow create: if isSignedIn() && !isSuspended();
+        allow update, delete: if isSignedIn() && !isSuspended();
+      }
+
+      match /seats/{seatId} {
+        allow read: if true;
+        allow create, update: if isSignedIn() && !isSuspended();
+        allow delete: if isAdmin() || (isSignedIn() && get(/databases/$(database)/documents/liveStreams/$(streamId)).data.creatorId == request.auth.uid);
+      }
+
+      match /requests/{requestId} {
+        allow read: if true;
+        allow create: if isSignedIn() && !isSuspended() && request.auth.uid == requestId;
+        allow update: if isSignedIn() && !isSuspended() && (request.auth.uid == requestId || get(/databases/$(database)/documents/liveStreams/$(streamId)).data.creatorId == request.auth.uid);
+        allow delete: if isSignedIn() && !isSuspended() && (request.auth.uid == requestId || get(/databases/$(database)/documents/liveStreams/$(streamId)).data.creatorId == request.auth.uid);
+      }
+
+      match /peers/{peerId} {
+        allow read, write: if isSignedIn() && !isSuspended();
+
+        match /hostCandidates/{candId} {
+          allow read, write: if isSignedIn() && !isSuspended();
+        }
+
+        match /viewerCandidates/{candId} {
+          allow read, write: if isSignedIn() && !isSuspended();
+        }
+      }
+    }
+
+    // Audio Rooms
+    match /audioRooms/{roomId} {
+      allow read: if true;
+      allow create, update: if isSignedIn() && !isSuspended();
+      allow delete: if isAdmin() || (isSignedIn() && get(/databases/$(database)/documents/liveStreams/$(roomId)).data.creatorId == request.auth.uid);
+    }
+
+    // Shorts & Comments nested collection
+    match /shorts/{shortId} {
+      allow read: if true;
+      allow create: if isSignedIn() && !isSuspended();
+      allow update: if isSignedIn() && !isSuspended() && (resource.data.creatorId == request.auth.uid || isAdmin() || request.resource.data.creatorId == request.auth.uid || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views', 'likes', 'comments']));
+      allow delete: if isAdmin() || (isSignedIn() && resource.data.creatorId == request.auth.uid);
+
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isSignedIn() && !isSuspended();
+        allow update, delete: if isAdmin() || (isSignedIn() && !isSuspended() && resource.data.userId == request.auth.uid);
+      }
+    }
+
+    // Shorts Analytics collection
+    match /shorts_analytics/{analyticsId} {
+      allow read, write: if isSignedIn() && !isSuspended();
+    }
+
+    // Reports collection
+    match /reports/{reportId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn() && !isSuspended();
+      allow update, delete: if isAdmin();
+    }
+
+    // Payouts collection
+    match /payouts/{payoutId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.creatorId == request.auth.uid);
+      allow create: if isSignedIn() && !isSuspended() && request.resource.data.creatorId == request.auth.uid;
+      allow update: if isAdmin() || (isSignedIn() && !isSuspended() && resource.data.creatorId == request.auth.uid && request.resource.data.creatorId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // Creator Wallets collection & Revenue Items
+    match /creator_wallets/{creatorId} {
+      allow read: if isAdmin() || isOwner(creatorId);
+      allow create: if isOwner(creatorId) && !isSuspended();
+      allow update: if isAdmin() || (isOwner(creatorId) && !isSuspended());
+      allow delete: if isAdmin();
+
+      match /revenue_items/{itemId} {
+        allow read: if isAdmin() || isOwner(creatorId);
+        allow create: if isOwner(creatorId) && !isSuspended();
+        allow update: if isAdmin() || (isOwner(creatorId) && !isSuspended());
+        allow delete: if isAdmin();
+      }
+    }
+
+    // Notifications collection
+    match /notifications/{notifId} {
+      allow read: if true;
+      allow create: if isSignedIn() && !isSuspended();
+      allow update, delete: if isAdmin() || (isSignedIn() && !isSuspended() && (resource.data.userId == request.auth.uid || resource.data.receiverId == request.auth.uid));
+    }
+
+    // chatMessages collection
+    match /chatMessages/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    // Audit logs collection
+    match /audit_logs/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    // System crash logs
+    match /system_crash_logs/{id} {
+      allow read: if isAdmin();
+      allow create: if true;
+      allow update, delete: if isAdmin();
+    }
+
+    // Performance metrics
+    match /performance_metrics/{id} {
+      allow read: if isAdmin();
+      allow create: if true;
+      allow update, delete: if isAdmin();
+    }
+
+    // Remote config values
+    match /remote_config_values/{id} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Monetization logs
+    match /monetization_logs/{id} {
+      allow read, write: if isAdmin() || (isSignedIn() && (resource.data.userId == request.auth.uid || request.resource.data.userId == request.auth.uid));
+    }
+
+    // System config
+    match /system/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Subscriptions collection
+    match /subscriptions/{subId} {
+      allow read, write: if isAdmin();
+    }
+
+    // SoundStream Coins Wallets
+    match /wallets/{userId} {
+      allow read: if isAdmin() || isOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.balance >= 0;
+      allow update: if isAdmin() || (
+        isOwner(userId) && 
+        !isSuspended() && 
+        request.resource.data.balance <= resource.data.balance && 
+        request.resource.data.totalPurchased == resource.data.totalPurchased
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Coin Transactions List
+    match /coin_transactions/{transactionId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn() && !isSuspended() && request.resource.data.userId == request.auth.uid && request.resource.data.type != "purchase";
+      allow update, delete: if isAdmin();
+    }
+
+    // Gift Catalog Definitions
+    match /gift_catalog/{giftId} {
+      allow read: if true;
+      allow write: if isAdmin() || isSignedIn();
+    }
+
+    // Virtual Gift Transactions Log
+    match /gift_transactions/{transactionId} {
+      allow read: if true;
+      allow create: if isSignedIn() && !isSuspended() && request.resource.data.senderId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // Creator Diamond Wallets
+    match /diamond_wallets/{creatorId} {
+      allow read: if isAdmin() || isOwner(creatorId);
+      allow create: if isSignedIn() && isOwner(creatorId);
+      allow update: if isAdmin() || (isOwner(creatorId) && !isSuspended() && request.resource.data.totalDiamonds >= 0);
+      allow delete: if isAdmin();
+    }
+
+    // Withdrawal Tickets
+    match /withdrawals/{withdrawalId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.creatorId == request.auth.uid);
+      allow create: if isSignedIn() && !isSuspended() && request.resource.data.creatorId == request.auth.uid;
+      allow update: if isAdmin() || (isSignedIn() && !isSuspended() && resource.data.creatorId == request.auth.uid && request.resource.data.status == "pending");
+      allow delete: if isAdmin();
+    }
+
+    // Leaderboards Rankings
+    match /leaderboards/{boardId} {
+      allow read: if true;
+      allow write: if isSignedIn() && !isSuspended();
+    }
+
+    // Gift Inventories
+    match /gift_inventory/{inventoryId} {
+      allow read: if true;
+      allow create, update: if isSignedIn() && !isSuspended();
+      allow delete: if isAdmin();
+    }
+
+    // PK Live Battles
+    match /live_battles/{battleId} {
+      allow read: if true;
+      allow create: if isSignedIn() && !isSuspended();
+      allow update: if isSignedIn() && !isSuspended() && (resource.data.creator1Id == request.auth.uid || resource.data.creator2Id == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // PK Battle Invites
+    match /battle_invites/{inviteId} {
+      allow read: if true;
+      allow create: if isSignedIn() && !isSuspended() && request.resource.data.senderId == request.auth.uid;
+      allow update: if isSignedIn() && !isSuspended() && (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid || isAdmin());
+      allow delete: if isAdmin() || (isSignedIn() && resource.data.senderId == request.auth.uid);
+    }
+
+    // PK Battle Scores
+    match /battle_scores/{scoreId} {
+      allow read: if true;
+      allow create, update: if isSignedIn() && !isSuspended();
+      allow delete: if isAdmin();
+    }
+
+    // PK Battle Results
+    match /battle_results/{resultId} {
+      allow read: if true;
+      allow create: if isSignedIn() && !isSuspended();
+      allow update, delete: if isAdmin();
+    }
+
+    // PK Battle History
+    match /battle_history/{historyId} {
+      allow read: if true;
+      allow create: if isSignedIn() && !isSuspended() && request.resource.data.creatorId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // PK Battle Leaderboards
+    match /battle_leaderboards/{boardId} {
+      allow read: if true;
+      allow write: if isSignedIn() && !isSuspended();
+    }
+
+    // Agencies collection
+    match /agencies/{agencyId} {
+      allow read: if true;
+      allow create: if isSignedIn() && !isSuspended() && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isAdmin() || (isSignedIn() && !isSuspended() && (resource.data.ownerId == request.auth.uid || request.resource.data.ownerId == request.auth.uid));
+      allow delete: if isAdmin();
+    }
+
+    // Agency Members
+    match /agency_members/{memberId} {
+      allow read: if isSignedIn() && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin() ||
+        exists(/databases/$(database)/documents/agencies/$(resource.data.agencyId))
+      );
+      allow create: if isSignedIn() && !isSuspended();
+      allow update, delete: if isAdmin() || (isSignedIn() && !isSuspended());
+    }
+
+    // Agency Artists
+    match /agency_artists/{id} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && !isSuspended();
+    }
+
+    // Agency Contracts
+    match /agency_contracts/{contractId} {
+      allow read: if isSignedIn() && (
+        resource.data.artistId == request.auth.uid ||
+        isAdmin() ||
+        exists(/databases/$(database)/documents/agencies/$(resource.data.agencyId))
+      );
+      allow create: if isSignedIn() && !isSuspended();
+      allow update: if isSignedIn() && !isSuspended() && (
+        resource.data.artistId == request.auth.uid ||
+        isAdmin() ||
+        exists(/databases/$(database)/documents/agencies/$(resource.data.agencyId))
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Agency Permissions
+    match /agency_permissions/{id} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || (isSignedIn() && !isSuspended());
+    }
+
+    // Agency Revenue
+    match /agency_revenue/{revenueId} {
+      allow read: if isSignedIn() && (
+        resource.data.artistId == request.auth.uid ||
+        isAdmin() ||
+        exists(/databases/$(database)/documents/agencies/$(resource.data.agencyId))
+      );
+      allow create: if isSignedIn() && !isSuspended();
+      allow update, delete: if isAdmin();
+    }
+
+    // Agency Notifications
+    match /agency_notifications/{notifId} {
+      allow read: if isSignedIn() && (
+        isAdmin() ||
+        exists(/databases/$(database)/documents/agencies/$(resource.data.agencyId))
+      );
+      allow create: if isSignedIn() && !isSuspended();
+      allow update: if isSignedIn() && !isSuspended();
+      allow delete: if isAdmin() || (isSignedIn() && !isSuspended());
+    }
+
+    // Agency Verification
+    match /agency_verification/{verifyId} {
+      allow read: if isAdmin() || (isSignedIn() && !isSuspended() && exists(/databases/$(database)/documents/agencies/$(resource.data.agencyId)));
+      allow create: if isSignedIn() && !isSuspended();
+      allow update: if isAdmin() || (isSignedIn() && !isSuspended());
+      allow delete: if isAdmin();
+    }
+
+    // Ads Campaigns Rules
+    match /ads_campaigns/{campaignId} {
+      allow read: if true;
+      allow create: if isSignedIn() && !isSuspended() && request.resource.data.advertiserId == request.auth.uid;
+      allow update: if isAdmin() || (isSignedIn() && !isSuspended() && resource.data.advertiserId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // Ads Creatives Rules
+    match /ads_creatives/{creativeId} {
+      allow read: if true;
+      allow create: if isSignedIn() && !isSuspended();
+      allow update: if isAdmin() || (isSignedIn() && !isSuspended());
+      allow delete: if isAdmin();
+    }
+
+    // Ads Payments Rules
+    match /ads_payments/{paymentId} {
+      allow read: if isSignedIn() && (resource.data.advertiserId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && !isSuspended() && request.resource.data.advertiserId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // Ads Billing Rules
+    match /ads_billing/{billingId} {
+      allow read: if isSignedIn() && (resource.data.advertiserId == request.auth.uid || isAdmin());
+      allow create, update: if isSignedIn() && !isSuspended() && request.resource.data.advertiserId == request.auth.uid;
+      allow delete: if isAdmin();
+    }
+
+    // Ads Reports Rules
+    match /ads_reports/{reportId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && !isSuspended();
+    }
+
+    // Ads Targeting Rules
+    match /ads_targeting/{targetingId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && !isSuspended();
+    }
+
+    // Ads Notifications Rules
+    match /ads_notifications/{notificationId} {
+      allow read: if isSignedIn() && (resource.data.advertiserId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && !isSuspended();
+      allow update: if isSignedIn() && !isSuspended() && resource.data.advertiserId == request.auth.uid;
+      allow delete: if isAdmin() || (isSignedIn() && !isSuspended() && resource.data.advertiserId == request.auth.uid);
+    }
+
+    // Ads Reviews Rules
+    match /ads_reviews/{reviewId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || (isSignedIn() && !isSuspended());
+    }
+
+    // Audio stream profiles
+    match /audio_profiles/{userId} {
+      allow read: if true;
+      allow create, update: if isSignedIn() && !isSuspended() && request.auth.uid == userId;
+      allow delete: if isAdmin();
+    }
+
+    // Game profiles
+    match /game_profiles/{userId} {
+      allow read: if true;
+      allow create, update: if isSignedIn() && !isSuspended() && request.auth.uid == userId;
+      allow delete: if isAdmin();
     }
   }
 }

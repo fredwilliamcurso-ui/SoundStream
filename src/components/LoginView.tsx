@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { User, Artist } from "../types";
 import { Mail, Lock, User as UserIcon, ShieldAlert, CheckCircle, Radio } from "lucide-react";
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signInAnonymously } from "firebase/auth";
+import { doc, setDoc, getDoc, query, collection, where, getDocs } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 import { analytics } from "../lib/analytics";
 // @ts-ignore
@@ -28,6 +28,161 @@ export default function LoginView({ onLoginSuccess, users, onBackToHome }: Login
 
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+
+  const handleGoogleSignIn = async () => {
+    setErrorMessage("");
+    setSuccessMessage("");
+    try {
+      const provider = new GoogleAuthProvider();
+      const userCredential = await signInWithPopup(auth, provider);
+      const firebaseUser = userCredential.user;
+
+      // Retrieve profile or create one
+      const userDocSnap = await getDoc(doc(db, "users", firebaseUser.uid));
+      let matchedUser: User;
+      if (userDocSnap.exists()) {
+        const data = userDocSnap.data();
+        matchedUser = {
+          uid: data.uid || firebaseUser.uid,
+          username: data.username || data.displayName || firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "User",
+          email: data.email || firebaseUser.email || "",
+          photoURL: data.photoURL || firebaseUser.photoURL || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&q=80",
+          createdAt: data.createdAt || new Date().toISOString(),
+          role: data.role || "listener",
+          id: data.uid || firebaseUser.uid,
+          displayName: data.username || data.displayName || firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "User"
+        };
+      } else {
+        const usernameVal = firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "User";
+        matchedUser = {
+          uid: firebaseUser.uid,
+          username: usernameVal,
+          email: firebaseUser.email || "",
+          photoURL: firebaseUser.photoURL || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&q=80",
+          createdAt: new Date().toISOString(),
+          role: "listener",
+          id: firebaseUser.uid,
+          displayName: usernameVal
+        };
+        await setDoc(doc(db, "users", firebaseUser.uid), {
+          uid: matchedUser.uid || "",
+          username: matchedUser.username || "",
+          email: matchedUser.email || "",
+          photoURL: matchedUser.photoURL || "",
+          createdAt: matchedUser.createdAt || new Date().toISOString(),
+          role: matchedUser.role || "listener"
+        });
+      }
+
+      // Track successful login event
+      analytics.trackEvent("login", matchedUser.uid, matchedUser.email, { method: "google" });
+
+      setSuccessMessage(`Welcome, ${matchedUser.username}!`);
+      setTimeout(() => {
+        onLoginSuccess(matchedUser);
+      }, 1000);
+    } catch (err: any) {
+      setErrorMessage(err.message || "Google Sign-In failed.");
+    }
+  };
+
+  const handleTikTokSignIn = async () => {
+    setErrorMessage("");
+    setSuccessMessage("");
+    try {
+      const response = await fetch("/api/auth/tiktok/url?isArtist=false");
+      if (!response.ok) {
+        throw new Error("Failed to fetch TikTok authentication URL.");
+      }
+      const { url } = await response.json();
+      const width = 580;
+      const height = 700;
+      const left = window.screen.width / 2 - width / 2;
+      const top = window.screen.height / 2 - height / 2;
+      const popup = window.open(
+        url,
+        "tiktok_oauth_popup",
+        `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,status=yes`
+      );
+      if (!popup) {
+        setErrorMessage("Please allow popups for this site to sign in with TikTok.");
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || "TikTok authorization failed.");
+    }
+  };
+
+  React.useEffect(() => {
+    const handleTikTokMessage = async (event: MessageEvent) => {
+      if (event.data?.type === "TIKTOK_AUTH_SUCCESS") {
+        const { openId, username, accessToken } = event.data.data;
+        setErrorMessage("");
+        setSuccessMessage("");
+        try {
+          const userCredential = await signInAnonymously(auth);
+          const firebaseUser = userCredential.user;
+
+          const q = query(collection(db, "users"), where("tiktokId", "==", openId));
+          const querySnapshot = await getDocs(q);
+          
+          let matchedUser: User;
+          if (!querySnapshot.empty) {
+            const userDoc = querySnapshot.docs[0];
+            const data = userDoc.data();
+            matchedUser = {
+              uid: data.uid || firebaseUser.uid,
+              username: data.username || username,
+              email: data.email || `${username}@tiktok.soundstream.com`,
+              photoURL: data.photoURL || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&q=80",
+              createdAt: data.createdAt || new Date().toISOString(),
+              role: data.role || "listener",
+              id: data.uid || firebaseUser.uid,
+              displayName: data.username || username,
+              tiktokId: openId,
+              tiktokUsername: username
+            };
+          } else {
+            matchedUser = {
+              uid: firebaseUser.uid,
+              username: username,
+              email: `${username}@tiktok.soundstream.com`,
+              photoURL: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&q=80",
+              createdAt: new Date().toISOString(),
+              role: "listener",
+              id: firebaseUser.uid,
+              displayName: username,
+              tiktokId: openId,
+              tiktokUsername: username
+            };
+            
+            await setDoc(doc(db, "users", firebaseUser.uid), {
+              uid: matchedUser.uid,
+              username: matchedUser.username,
+              email: matchedUser.email,
+              photoURL: matchedUser.photoURL,
+              createdAt: matchedUser.createdAt,
+              role: matchedUser.role,
+              tiktokId: openId,
+              tiktokUsername: username,
+              tiktokAccessToken: accessToken
+            });
+          }
+
+          analytics.trackEvent("login", matchedUser.uid, matchedUser.email, { method: "tiktok" });
+          setSuccessMessage(`Welcome, @${username} (via TikTok)!`);
+          setTimeout(() => {
+            onLoginSuccess(matchedUser);
+          }, 1000);
+        } catch (err: any) {
+          console.error("TikTok Login database interaction error:", err);
+          setErrorMessage(err.message || "TikTok account integration failed.");
+        }
+      }
+    };
+
+    window.addEventListener("message", handleTikTokMessage);
+    return () => window.removeEventListener("message", handleTikTokMessage);
+  }, [onLoginSuccess]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -420,6 +575,39 @@ export default function LoginView({ onLoginSuccess, users, onBackToHome }: Login
               Log In
             </button>
           )}
+
+          <div className="flex items-center my-1">
+            <div className="flex-1 border-t border-white/5"></div>
+            <span className="px-3 text-[10px] uppercase font-mono tracking-wider text-zinc-500">or</span>
+            <div className="flex-1 border-t border-white/5"></div>
+          </div>
+
+          <button 
+            id="google-signin-btn"
+            type="button"
+            onClick={handleGoogleSignIn}
+            className="w-full bg-[#0d0d0f] hover:bg-white/5 text-zinc-200 border border-white/10 font-bold text-xs tracking-wider uppercase py-3 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24">
+              <path fill="#ea4335" d="M12 5.04c1.64 0 3.12.56 4.28 1.67l3.2-3.2C17.51 1.7 14.96 1 12 1 7.35 1 3.4 3.65 1.57 7.5l3.8 2.95C6.26 6.94 8.9 5.04 12 5.04z" />
+              <path fill="#4285f4" d="M23.45 12.3c0-.82-.07-1.6-.2-2.3H12v4.4h6.43c-.28 1.44-1.1 2.66-2.33 3.47l3.6 2.8c2.1-1.94 3.75-4.8 3.75-8.37z" />
+              <path fill="#fbbc05" d="M5.37 14.55c-.24-.72-.37-1.5-.37-2.3s.13-1.58.37-2.3L1.57 7.01C.57 9.01 0 11.23 0 13.5s.57 4.49 1.57 6.49l3.8-2.95c-.24-.49-.24-.98-.24-1.49z" />
+              <path fill="#34a853" d="M12 23c3.24 0 5.97-1.07 7.96-2.93l-3.6-2.8c-1.1.74-2.5 1.18-4.36 1.18-3.1 0-5.74-1.9-6.63-4.47l-3.8 2.95C3.4 20.35 7.35 23 12 23z" />
+            </svg>
+            <span>Sign In with Google</span>
+          </button>
+
+          <button 
+            id="tiktok-signin-btn"
+            type="button"
+            onClick={handleTikTokSignIn}
+            className="w-full bg-black hover:bg-zinc-950 text-white border border-white/10 hover:border-pink-500/50 font-bold text-xs tracking-wider uppercase py-3 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-pink-500/10 hover:shadow-cyan-400/20"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.02 1.59 4.19a8.1 8.1 0 0 0 3.93 2.45v3.91c-.88-.08-1.75-.32-2.58-.66a8.04 8.04 0 0 1-3.1-2.28c-.06 2.3-.01 4.59-.02 6.89-.04 1.34-.33 2.7-.93 3.89a7.33 7.33 0 0 1-4.71 4.14c-1.63.49-3.41.48-5.02-.1a7.35 7.35 0 0 1-4.14-4.52c-.52-1.57-.45-3.32.19-4.83a7.32 7.32 0 0 1 4.88-4.27V12.7a3.42 3.42 0 0 0-2.07 1.37 3.44 3.44 0 0 0-.42 3.04 3.42 3.42 0 0 0 2.76 2.3c.96.1 1.95-.15 2.72-.75.83-.65 1.29-1.67 1.28-2.72.03-3.99.01-7.98.02-11.97-.01-.32.03-.64.12-.95.27-1.14.94-2.15 1.88-2.84.44-.31.93-.55 1.45-.69.45-.11.9-.17 1.35-.17Z"/>
+            </svg>
+            <span>Sign In with TikTok</span>
+          </button>
 
           <button 
             id="toggle-auth-mode-btn"

@@ -50,6 +50,10 @@ export default function VideoPlayer({
   const [showQualityDropdown, setShowQualityDropdown] = useState(false);
   const [isChangingQuality, setIsChangingQuality] = useState(false);
 
+  // Playback Speed
+  const [playbackRate, setPlaybackRate] = useState<number>(1);
+  const [showSpeedDropdown, setShowSpeedDropdown] = useState(false);
+
   // Picture-in-Picture
   const [isPipSupported, setIsPipSupported] = useState(false);
 
@@ -67,11 +71,20 @@ export default function VideoPlayer({
   }, [videoUrl]);
 
   useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.playbackRate = playbackRate;
+    }
+  }, [playbackRate, videoUrl]);
+
+  useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
     const handlePlay = () => {
       setIsPlaying(true);
+      if (videoRef.current) {
+        videoRef.current.playbackRate = playbackRate;
+      }
       analytics.trackEvent("video_play", auth.currentUser?.uid, auth.currentUser?.email, {
         title,
         artistName,
@@ -90,11 +103,21 @@ export default function VideoPlayer({
         setIsLoading(false);
       }
     };
+    const handlePlaying = () => {
+      setIsLoading(false);
+      setIsPlaying(true);
+    };
     const handleWaiting = () => {
       if (!isChangingQuality) {
         setBufferingText("Optimizing high-fidelity stream...");
         setIsLoading(true);
       }
+    };
+    const handleSeeking = () => {
+      setIsLoading(true);
+    };
+    const handleSeeked = () => {
+      setIsLoading(false);
     };
 
     video.addEventListener("play", handlePlay);
@@ -102,7 +125,10 @@ export default function VideoPlayer({
     video.addEventListener("timeupdate", handleTimeUpdate);
     video.addEventListener("durationchange", handleDurationChange);
     video.addEventListener("canplay", handleCanPlay);
+    video.addEventListener("playing", handlePlaying);
     video.addEventListener("waiting", handleWaiting);
+    video.addEventListener("seeking", handleSeeking);
+    video.addEventListener("seeked", handleSeeked);
 
     // Initial load
     video.load();
@@ -113,9 +139,12 @@ export default function VideoPlayer({
       video.removeEventListener("timeupdate", handleTimeUpdate);
       video.removeEventListener("durationchange", handleDurationChange);
       video.removeEventListener("canplay", handleCanPlay);
+      video.removeEventListener("playing", handlePlaying);
       video.removeEventListener("waiting", handleWaiting);
+      video.removeEventListener("seeking", handleSeeking);
+      video.removeEventListener("seeked", handleSeeked);
     };
-  }, [videoUrl, isChangingQuality]);
+  }, [videoUrl, isChangingQuality, playbackRate]);
 
   const handlePlayPause = () => {
     if (!videoRef.current) return;
@@ -158,9 +187,29 @@ export default function VideoPlayer({
 
   const toggleFullScreen = () => {
     if (!containerRef.current) return;
+    
+    // Check if we are on Android / iOS
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    
+    if (isMobile && videoRef.current) {
+      // For mobile devices, call webkitEnterFullscreen or enterFullscreen on the video element directly for native fullscreen behavior
+      const video: any = videoRef.current;
+      if (video.webkitEnterFullscreen) {
+        video.webkitEnterFullscreen();
+        return;
+      } else if (video.requestFullscreen) {
+        video.requestFullscreen();
+        return;
+      }
+    }
+
     if (!document.fullscreenElement) {
       containerRef.current.requestFullscreen().catch(err => {
         console.error("Failed to enter fullscreen:", err);
+        // Fallback to video element
+        if (videoRef.current) {
+          videoRef.current.requestFullscreen().catch(e => console.error("Video element fullscreen fallback failed:", e));
+        }
       });
     } else {
       document.exitFullscreen();
@@ -374,6 +423,7 @@ export default function VideoPlayer({
                       onClick={(e) => {
                         e.stopPropagation();
                         setShowQualityDropdown(!showQualityDropdown);
+                        setShowSpeedDropdown(false);
                       }}
                       className="flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-zinc-900/85 border border-white/10 text-white hover:text-pink-400 transition-all text-[10px] font-mono uppercase cursor-pointer"
                     >
@@ -406,6 +456,57 @@ export default function VideoPlayer({
                               }`}
                             >
                               {q}
+                            </button>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Playback Speed Selector */}
+                  <div className="relative">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowSpeedDropdown(!showSpeedDropdown);
+                        setShowQualityDropdown(false);
+                      }}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-zinc-900/85 border border-white/10 text-white hover:text-pink-400 transition-all text-[10px] font-mono uppercase cursor-pointer"
+                      title="Playback Speed"
+                    >
+                      <Tv className="w-3 h-3" />
+                      {playbackRate}x
+                    </button>
+                    
+                    <AnimatePresence>
+                      {showSpeedDropdown && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 10 }}
+                          className="absolute bottom-full right-0 mb-2 w-28 rounded-lg bg-zinc-950 border border-white/10 overflow-hidden shadow-2xl z-30 flex flex-col p-1.5 gap-0.5"
+                        >
+                          <span className="text-[8.5px] font-mono text-zinc-500 px-2 py-1 uppercase border-b border-white/5 mb-1 block">
+                            Speed
+                          </span>
+                          {[0.5, 0.75, 1, 1.25, 1.5, 2].map((speed) => (
+                            <button
+                              key={speed}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPlaybackRate(speed);
+                                if (videoRef.current) {
+                                  videoRef.current.playbackRate = speed;
+                                }
+                                setShowSpeedDropdown(false);
+                              }}
+                              className={`w-full text-left px-2 py-1.5 rounded font-mono text-[9.5px] transition-colors cursor-pointer ${
+                                playbackRate === speed
+                                  ? "bg-pink-500/15 text-pink-400 font-bold"
+                                  : "text-zinc-400 hover:bg-white/5 hover:text-white"
+                              }`}
+                            >
+                              {speed}x
                             </button>
                           ))}
                         </motion.div>

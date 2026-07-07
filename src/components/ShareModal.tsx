@@ -31,6 +31,7 @@ export default function ShareModal({
 }: ShareModalProps) {
   const [copied, setCopied] = useState(false);
   const [instagramCopied, setInstagramCopied] = useState(false);
+  const [tiktokCopied, setTiktokCopied] = useState(false);
 
   if (!isOpen) return null;
 
@@ -49,6 +50,10 @@ export default function ShareModal({
     ? `Streaming "${title}" by ${subtitle} on SoundStream! Check the link in my bio to hear independence: ${shareUrl} 🎵 #SoundStream #IndieMusic #SupportIndie`
     : `Discovered an incredible independent flow from creator "${title}" on SoundStream! Check out their catalog: ${shareUrl} 🔥 #SoundStream #AestheticBeats #VerifiedCreator`;
 
+  const tiktokCaption = type === "song"
+    ? `🔥 Vibe to "${title}" by ${subtitle} on SoundStream! Check out the track here: ${shareUrl} 🎧✨ #SoundStream #newmusic #indieartist #foryou`
+    : `🎵 Supporting label-free talent! Check out creator "${title}" on SoundStream: ${shareUrl} ⚡👑 #SoundStream #indieartist #songwriter #musicmaker`;
+
   const copyToClipboard = () => {
     navigator.clipboard.writeText(shareUrl).then(() => {
       setCopied(true);
@@ -60,6 +65,16 @@ export default function ShareModal({
     navigator.clipboard.writeText(instagramCaption).then(() => {
       setInstagramCopied(true);
       setTimeout(() => setInstagramCopied(false), 2000);
+    });
+  };
+
+  const copyTikTokCaption = () => {
+    navigator.clipboard.writeText(tiktokCaption).then(() => {
+      setTiktokCopied(true);
+      setTimeout(() => setTiktokCopied(false), 2000);
+      setTimeout(() => {
+        window.open("https://www.tiktok.com/upload", "_blank");
+      }, 850);
     });
   };
 
@@ -100,14 +115,14 @@ export default function ShareModal({
             <h3 className="font-sans font-black text-xl text-zinc-100 uppercase tracking-tight">
               Share the Independent Vibe
             </h3>
-            <p className="text-zinc-450 text-xs font-sans">
+            <p className="text-zinc-455 text-xs font-sans">
               Help amplify sound waves by sharing this {type} across public streaming networks.
             </p>
           </div>
 
           {/* Preview Card */}
           <div className="bg-white/5 border border-white/5 rounded-2xl p-4 flex items-center gap-4 mb-6">
-            <div className="w-12 h-12 rounded-xl bg-indigo-900/40 flex items-center justify-center text-indigo-450 shrink-0 border border-indigo-550/25">
+            <div className="w-12 h-12 rounded-xl bg-indigo-900/40 flex items-center justify-center text-indigo-455 shrink-0 border border-indigo-550/25">
               <Sparkles className="w-5 h-5" />
             </div>
             <div className="overflow-hidden">
@@ -124,17 +139,17 @@ export default function ShareModal({
           </div>
 
           {/* Share Links Grid */}
-          <div className="grid grid-cols-2 gap-3 mb-6">
+          <div className="grid grid-cols-3 gap-3 mb-6">
             {/* Twitter */}
             <a 
               id="share-twitter-btn"
               href={twitterShareUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="bg-white/5 hover:bg-[#1DA1F2]/10 hover:text-[#1DA1F2] border border-white/5 hover:border-[#1DA1F2]/20 rounded-xl p-3.5 flex flex-col items-center justify-center text-center gap-2 group transition-all"
+              className="bg-white/5 hover:bg-[#1DA1F2]/10 hover:text-[#1DA1F2] border border-white/5 hover:border-[#1DA1F2]/20 rounded-xl p-3 flex flex-col items-center justify-center text-center gap-1.5 group transition-all"
             >
               <Twitter className="w-5 h-5 text-zinc-455 group-hover:scale-110 transition-transform" />
-              <span className="font-sans font-bold text-xs select-none">Twitter / X</span>
+              <span className="font-sans font-bold text-[10px] select-none">Twitter</span>
             </a>
 
             {/* Facebook */}
@@ -143,12 +158,33 @@ export default function ShareModal({
               href={facebookShareUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="bg-white/5 hover:bg-[#1877F2]/10 hover:text-[#1877F2] border border-white/5 hover:border-[#1877F2]/20 rounded-xl p-3.5 flex flex-col items-center justify-center text-center gap-2 group transition-all"
+              className="bg-white/5 hover:bg-[#1877F2]/10 hover:text-[#1877F2] border border-white/5 hover:border-[#1877F2]/20 rounded-xl p-3 flex flex-col items-center justify-center text-center gap-1.5 group transition-all"
             >
               <Facebook className="w-5 h-5 text-zinc-455 group-hover:scale-110 transition-transform" />
-              <span className="font-sans font-bold text-xs select-none">Facebook</span>
+              <span className="font-sans font-bold text-[10px] select-none">Facebook</span>
             </a>
+
+            {/* TikTok */}
+            <button 
+              id="share-tiktok-btn"
+              onClick={copyTikTokCaption}
+              className="bg-white/5 hover:bg-[#ff0050]/10 hover:text-[#ff0050] border border-white/5 hover:border-[#ff0050]/20 rounded-xl p-3 flex flex-col items-center justify-center text-center gap-1.5 group transition-all cursor-pointer"
+            >
+              <svg className="w-5 h-5 text-zinc-400 group-hover:scale-110 transition-transform group-hover:text-pink-500" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.02 1.59 4.19a8.1 8.1 0 0 0 3.93 2.45v3.91c-.88-.08-1.75-.32-2.58-.66a8.04 8.04 0 0 1-3.1-2.28c-.06 2.3-.01 4.59-.02 6.89-.04 1.34-.33 2.7-.93 3.89a7.33 7.33 0 0 1-4.71 4.14c-1.63.49-3.41.48-5.02-.1a7.35 7.35 0 0 1-4.14-4.52c-.52-1.57-.45-3.32.19-4.83a7.32 7.32 0 0 1 4.88-4.27V12.7a3.42 3.42 0 0 0-2.07 1.37 3.44 3.44 0 0 0-.42 3.04 3.42 3.42 0 0 0 2.76 2.3c.96.1 1.95-.15 2.72-.75.83-.65 1.29-1.67 1.28-2.72.03-3.99.01-7.98.02-11.97-.01-.32.03-.64.12-.95.27-1.14.94-2.15 1.88-2.84.44-.31.93-.55 1.45-.69.45-.11.9-.17 1.35-.17Z"/>
+              </svg>
+              <span className="font-sans font-bold text-[10px] select-none">TikTok</span>
+            </button>
           </div>
+
+          {/* TikTok copy guide if copied */}
+          {tiktokCopied && (
+            <div className="mb-4 bg-pink-500/10 border border-pink-500/20 p-3 rounded-xl animate-fade-in text-center">
+              <p className="text-[10px] text-pink-400 font-extrabold uppercase font-mono tracking-wider animate-pulse">
+                🚀 TikTok Caption Copied! Redirecting to creator uploads...
+              </p>
+            </div>
+          )}
 
           {/* Instagram copy guide */}
           <div className="mb-6 bg-white/5 border border-white/5 p-4 rounded-xl space-y-2.5">
