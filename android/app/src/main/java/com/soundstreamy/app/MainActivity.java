@@ -6,7 +6,7 @@ import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
     @Override
-    protected void onPause() {
+    public void onPause() {
         super.onPause();
         // Prevent WebView from fully suspending JavaScript timers and audio when minimized or locked
         Bridge bridgeObj = getBridge();
