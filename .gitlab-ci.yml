@@ -1,4 +1,4 @@
-image: cirruslabs/android-sdk:34
+image: ghcr.io/cirruslabs/android-sdk:34
 
 variables:
   # Disable the Gradle daemon to save memory in CI environments
