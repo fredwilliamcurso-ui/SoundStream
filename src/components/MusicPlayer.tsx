@@ -19,6 +19,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { Song } from "../types";
 import VideoPlayer from "./VideoPlayer";
+import { BackgroundAudio, setupBackgroundAudioListeners } from "../lib/backgroundAudio";
 
 interface MusicPlayerProps {
   song: Song | null;
@@ -70,6 +71,7 @@ export default function MusicPlayer({
   const [showTheaterMode, setShowTheaterMode] = useState(false);
   const [audioQuality, setAudioQuality] = useState<"standard" | "high" | "lossless">("standard");
   const [qualityWarning, setQualityWarning] = useState(false);
+  const lastSyncedPosRef = useRef(0);
 
   // Sync mute state and volume with audio element
   useEffect(() => {
@@ -153,6 +155,77 @@ export default function MusicPlayer({
       console.warn("Failed to set MediaSession position state:", err);
     }
   }, [playbackTime.current, playbackTime.total]);
+
+  // --- NATIVE BACKGROUND AUDIO AND MEDIA CONTROLS SYNC ---
+  useEffect(() => {
+    if (!BackgroundAudio || !song) return;
+
+    // Start background service when a song starts or toggles
+    BackgroundAudio.startService({
+      title: song.title,
+      artist: song.artistName,
+      coverUrl: song.coverUrl,
+      isPlaying: isPlaying,
+      duration: playbackTime.total || 0,
+      position: playbackTime.current || 0
+    }).catch(err => console.error("Failed to start background service:", err));
+  }, [song?.id, isPlaying]);
+
+  // Sync seek/position updates to native Background Audio
+  useEffect(() => {
+    if (!BackgroundAudio || !song) return;
+
+    const diff = Math.abs(playbackTime.current - lastSyncedPosRef.current);
+    // Only update position if it deviates significantly (e.g. on manual seek)
+    if (diff > 3) {
+      BackgroundAudio.updateState({
+        title: song.title,
+        artist: song.artistName,
+        coverUrl: song.coverUrl,
+        isPlaying: isPlaying,
+        duration: playbackTime.total || 0,
+        position: playbackTime.current
+      }).catch(err => console.error("Failed to update background service state:", err));
+    }
+    lastSyncedPosRef.current = playbackTime.current;
+  }, [playbackTime.current, song, isPlaying, playbackTime.total]);
+
+  // Clean up native service when unmounting completely
+  useEffect(() => {
+    return () => {
+      if (BackgroundAudio) {
+        BackgroundAudio.stopService().catch(err => console.error("Failed to stop background service:", err));
+      }
+    };
+  }, []);
+
+  // Listen to remote media controls (Lock Screen, Notification, Headset/Bluetooth)
+  useEffect(() => {
+    if (!BackgroundAudio || !song) return;
+
+    const cleanup = setupBackgroundAudioListeners({
+      onPlay: () => {
+        if (!isPlaying) onPlayPauseToggle();
+      },
+      onPause: () => {
+        if (isPlaying) onPlayPauseToggle();
+      },
+      onNext: () => {
+        onNext();
+      },
+      onPrev: () => {
+        onPrev();
+      },
+      onSeek: (pos) => {
+        onSeek(pos);
+      }
+    });
+
+    return () => {
+      cleanup();
+    };
+  }, [song, isPlaying, onPlayPauseToggle, onNext, onPrev, onSeek]);
+  // --- END OF NATIVE SYNC ---
 
   if (!song) {
     return (
