@@ -1,5 +1,7 @@
 package com.soundstreamy.app;
 
+import android.webkit.WebView;
+import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
@@ -7,8 +9,12 @@ public class MainActivity extends BridgeActivity {
     protected void onPause() {
         super.onPause();
         // Prevent WebView from fully suspending JavaScript timers and audio when minimized or locked
-        if (this.bridge != null && this.bridge.getWebView() != null) {
-            this.bridge.getWebView().resumeTimers();
+        Bridge bridgeObj = getBridge();
+        if (bridgeObj != null) {
+            WebView webView = bridgeObj.getWebView();
+            if (webView != null) {
+                webView.resumeTimers();
+            }
         }
     }
 }
