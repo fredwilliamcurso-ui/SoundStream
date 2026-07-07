@@ -78,6 +78,82 @@ export default function MusicPlayer({
     }
   }, [volume, isMuted, song, audioRef]);
 
+  // Media Session API for lock screen and background audio support
+  useEffect(() => {
+    if (typeof window === "undefined" || !("mediaSession" in navigator) || !song) return;
+
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: song.title,
+        artist: song.artistName,
+        album: "SoundStreamy",
+        artwork: [
+          { src: song.coverUrl, sizes: "96x96", type: "image/jpeg" },
+          { src: song.coverUrl, sizes: "128x128", type: "image/jpeg" },
+          { src: song.coverUrl, sizes: "192x192", type: "image/jpeg" },
+          { src: song.coverUrl, sizes: "256x256", type: "image/jpeg" },
+          { src: song.coverUrl, sizes: "384x384", type: "image/jpeg" },
+          { src: song.coverUrl, sizes: "512x512", type: "image/jpeg" }
+        ]
+      });
+
+      navigator.mediaSession.setActionHandler("play", onPlayPauseToggle);
+      navigator.mediaSession.setActionHandler("pause", onPlayPauseToggle);
+      navigator.mediaSession.setActionHandler("previoustrack", onPrev);
+      navigator.mediaSession.setActionHandler("nexttrack", onNext);
+
+      // Support seek handlers
+      try {
+        navigator.mediaSession.setActionHandler("seekto", (details) => {
+          if (details.seekTime !== undefined) {
+            onSeek(details.seekTime);
+          }
+        });
+      } catch (e) {
+        console.warn("MediaSession seekto not fully supported:", e);
+      }
+    } catch (err) {
+      console.error("Failed to initialize MediaSession metadata:", err);
+    }
+
+    return () => {
+      if ("mediaSession" in navigator) {
+        navigator.mediaSession.setActionHandler("play", null);
+        navigator.mediaSession.setActionHandler("pause", null);
+        navigator.mediaSession.setActionHandler("previoustrack", null);
+        navigator.mediaSession.setActionHandler("nexttrack", null);
+        try {
+          navigator.mediaSession.setActionHandler("seekto", null);
+        } catch (e) {}
+      }
+    };
+  }, [song, onPlayPauseToggle, onNext, onPrev, onSeek]);
+
+  // Sync playback state to OS Media Session
+  useEffect(() => {
+    if (typeof window === "undefined" || !("mediaSession" in navigator)) return;
+    navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
+  }, [isPlaying]);
+
+  // Sync seek/position state to OS Media Session
+  useEffect(() => {
+    if (typeof window === "undefined" || !("mediaSession" in navigator) || !navigator.mediaSession.setPositionState) return;
+    
+    try {
+      const duration = playbackTime.total || 0;
+      const position = Math.min(playbackTime.current || 0, duration);
+      if (duration > 0 && position >= 0) {
+        navigator.mediaSession.setPositionState({
+          duration,
+          playbackRate: 1.0,
+          position
+        });
+      }
+    } catch (err) {
+      console.warn("Failed to set MediaSession position state:", err);
+    }
+  }, [playbackTime.current, playbackTime.total]);
+
   if (!song) {
     return (
       <div 
