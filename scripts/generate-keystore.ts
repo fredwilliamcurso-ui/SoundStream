@@ -27,7 +27,7 @@ async function main() {
   cert.sign(keys.privateKey, forge.md.sha256.create());
 
   console.log("Packaging into PKCS12 Keystore container...");
-  const password = "Ss@2026!Launch#Play";
+  const password = "";
   const alias = "soundstream_alias";
 
   // toPkcs12Asn creates the ASN.1 structure representing the PKCS#12 container

@@ -24,7 +24,7 @@ function request(path) {
 
 async function main() {
   try {
-    const commitSha = '9b883de580dbbfae8ee4c391e24e55d0474bd35c';
+    const commitSha = '973a8c00ba3705affe97d891c604bb0fcadf0c0e';
     console.log(`Checking statuses for commit ${commitSha}...`);
     const statuses = await request(`/api/v4/projects/83860265/repository/commits/${commitSha}/statuses`);
     if (Array.isArray(statuses)) {
