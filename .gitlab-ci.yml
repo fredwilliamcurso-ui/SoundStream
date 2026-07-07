@@ -27,6 +27,12 @@ build_android:
     - node --version
     - npm --version
     - java -version
+    # Debug env vars safely
+    - echo "SOUNDSTREAM_KEY_ALIAS is '${SOUNDSTREAM_KEY_ALIAS}'"
+    - echo "SOUNDSTREAM_KEYSTORE_PASSWORD length is ${#SOUNDSTREAM_KEYSTORE_PASSWORD}"
+    - echo "SOUNDSTREAM_KEYSTORE_PASSWORD sha256 is $(echo -n "${SOUNDSTREAM_KEYSTORE_PASSWORD}" | sha256sum)"
+    - echo "SOUNDSTREAM_KEY_PASSWORD length is ${#SOUNDSTREAM_KEY_PASSWORD}"
+    - echo "SOUNDSTREAM_KEY_PASSWORD sha256 is $(echo -n "${SOUNDSTREAM_KEY_PASSWORD}" | sha256sum)"
     # Install Node dependencies using cache
     - npm ci --cache .npm --prefer-offline
   script:
