@@ -19,9 +19,9 @@ android {
     signingConfigs {
         release {
             storeFile file("soundstream_release.keystore")
-            storePassword System.getenv("SOUNDSTREAM_KEYSTORE_PASSWORD") ?: (project.findProperty("SOUNDSTREAM_KEYSTORE_PASSWORD") ?: "")
+            storePassword System.getenv("SOUNDSTREAM_KEYSTORE_PASSWORD") ?: (project.findProperty("SOUNDSTREAM_KEYSTORE_PASSWORD") ?: "Ss@2026!Launch#Play")
             keyAlias System.getenv("SOUNDSTREAM_KEY_ALIAS") ?: (project.findProperty("SOUNDSTREAM_KEY_ALIAS") ?: "soundstream_alias")
-            keyPassword System.getenv("SOUNDSTREAM_KEY_PASSWORD") ?: (project.findProperty("SOUNDSTREAM_KEY_PASSWORD") ?: "")
+            keyPassword System.getenv("SOUNDSTREAM_KEY_PASSWORD") ?: (project.findProperty("SOUNDSTREAM_KEY_PASSWORD") ?: "Ss@2026!Launch#Play")
         }
     }
     buildTypes {
