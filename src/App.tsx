@@ -192,7 +192,8 @@ export default function App() {
       const isStandalone = 
         window.matchMedia("(display-mode: standalone)").matches || 
         (navigator as any).standalone === true ||
-        document.referrer.includes("android-app://");
+        document.referrer.includes("android-app://") ||
+        (window as any).Capacitor !== undefined;
       
       setIsAppInstalled(isStandalone);
     };

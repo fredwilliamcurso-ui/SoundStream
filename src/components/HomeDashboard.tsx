@@ -62,6 +62,8 @@ export default function HomeDashboard({
   setCurrentTab
 }: HomeDashboardProps) {
 
+  const isRunningNatively = typeof window !== "undefined" && ((window as any).Capacitor !== undefined || isAppInstalled);
+
   // Load live streams for home page discovery
   const [liveStreams, setLiveStreams] = useState<any[]>([]);
   useEffect(() => {
@@ -323,104 +325,106 @@ export default function HomeDashboard({
       )}
 
       {/* SoundStreamy App Center Banner */}
-      <div 
-        id="app-center-section" 
-        className="rounded-3xl p-6 md:p-8 bg-[#16161c]/45 border border-white/5 relative overflow-hidden backdrop-blur-md shadow-xl"
-      >
-        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/5 rounded-full filter blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-600/5 rounded-full filter blur-3xl pointer-events-none" />
+      {!isRunningNatively && (
+        <div 
+          id="app-center-section" 
+          className="rounded-3xl p-6 md:p-8 bg-[#16161c]/45 border border-white/5 relative overflow-hidden backdrop-blur-md shadow-xl"
+        >
+          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/5 rounded-full filter blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-600/5 rounded-full filter blur-3xl pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-6">
-          <div className="max-w-xl text-center lg:text-left space-y-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-500/10 border border-purple-500/25 rounded-full text-[10px] font-bold tracking-widest text-purple-300 uppercase font-mono">
-              <Smartphone className="w-3 h-3 text-purple-400" />
-              SoundStreamy App Center
-            </span>
-            <h3 className="text-2xl font-black tracking-tight text-white uppercase">
-              Take SoundStreamy Everywhere
-            </h3>
-            <p className="text-xs md:text-sm text-zinc-400 leading-relaxed">
-              Listen to high-fidelity lossless independent tracks, watch raw music videos, and sync your favorite artists right from your devices. Try our native Android app or install the ultra-lightweight Web App.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full lg:w-auto shrink-0">
-            {/* Card 1: Direct Android APK */}
-            <div className="bg-[#111116] border border-white/5 rounded-2xl p-5 flex flex-col justify-between items-center text-center hover:border-purple-500/20 transition-all">
-              <div className="mb-4">
-                <div className="w-10 h-10 rounded-full bg-purple-600/10 border border-purple-500/20 text-purple-400 flex items-center justify-center mx-auto mb-2">
-                  <Download className="w-5 h-5" />
-                </div>
-                <h4 className="font-bold text-xs text-white uppercase tracking-wider">Android Native App</h4>
-                <p className="text-[10px] text-zinc-500 mt-1 max-w-[180px]">
-                  Download our official, pre-configured direct installation APK.
-                </p>
-              </div>
-
-              <a
-                href="/Soundstream.apk"
-                download="Soundstream.apk"
-                onClick={() => {
-                  analytics.trackEvent("apk_download", "anonymous", "anonymous", {
-                    fileName: "Soundstream.apk",
-                    location: "home_dashboard_promo"
-                  });
-                }}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-sans font-bold text-xs rounded-xl shadow-lg shadow-indigo-500/10 hover:shadow-indigo-500/25 transition-all text-center no-underline border-none cursor-pointer"
-              >
-                <Download className="w-3.5 h-3.5 text-white" />
-                <span>Download APK</span>
-              </a>
-              <span className="text-[9px] font-mono text-zinc-650 mt-2">
-                Size: ~25.4 MB • v1.0.2
+          <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-6">
+            <div className="max-w-xl text-center lg:text-left space-y-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-500/10 border border-purple-500/25 rounded-full text-[10px] font-bold tracking-widest text-purple-300 uppercase font-mono">
+                <Smartphone className="w-3 h-3 text-purple-400" />
+                SoundStreamy App Center
               </span>
+              <h3 className="text-2xl font-black tracking-tight text-white uppercase">
+                Take SoundStreamy Everywhere
+              </h3>
+              <p className="text-xs md:text-sm text-zinc-400 leading-relaxed">
+                Listen to high-fidelity lossless independent tracks, watch raw music videos, and sync your favorite artists right from your devices. Try our native Android app or install the ultra-lightweight Web App.
+              </p>
             </div>
 
-            {/* Card 2: PWA Web App */}
-            <div className="bg-[#111116] border border-white/5 rounded-2xl p-5 flex flex-col justify-between items-center text-center hover:border-indigo-500/20 transition-all">
-              <div className="mb-4">
-                <div className="w-10 h-10 rounded-full bg-indigo-600/10 border border-indigo-500/20 text-indigo-450 flex items-center justify-center mx-auto mb-2">
-                  <Smartphone className="w-5 h-5" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full lg:w-auto shrink-0">
+              {/* Card 1: Direct Android APK */}
+              <div className="bg-[#111116] border border-white/5 rounded-2xl p-5 flex flex-col justify-between items-center text-center hover:border-purple-500/20 transition-all">
+                <div className="mb-4">
+                  <div className="w-10 h-10 rounded-full bg-purple-600/10 border border-purple-500/20 text-purple-400 flex items-center justify-center mx-auto mb-2">
+                    <Download className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-bold text-xs text-white uppercase tracking-wider">Android Native App</h4>
+                  <p className="text-[10px] text-zinc-500 mt-1 max-w-[180px]">
+                    Download our official, pre-configured direct installation APK.
+                  </p>
                 </div>
-                <h4 className="font-bold text-xs text-white uppercase tracking-wider">Web App (PWA)</h4>
-                <p className="text-[10px] text-zinc-500 mt-1 max-w-[180px]">
-                  Install instantly on Chrome, Safari, or Edge without files.
-                </p>
+
+                <a
+                  href="/Soundstream.apk"
+                  download="Soundstream.apk"
+                  onClick={() => {
+                    analytics.trackEvent("apk_download", "anonymous", "anonymous", {
+                      fileName: "Soundstream.apk",
+                      location: "home_dashboard_promo"
+                    });
+                  }}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-sans font-bold text-xs rounded-xl shadow-lg shadow-indigo-500/10 hover:shadow-indigo-500/25 transition-all text-center no-underline border-none cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5 text-white" />
+                  <span>Download APK</span>
+                </a>
+                <span className="text-[9px] font-mono text-zinc-650 mt-2">
+                  Size: ~25.4 MB • v1.0.2
+                </span>
               </div>
 
-              {isAppInstalled ? (
-                <div className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-450 font-sans font-bold text-xs rounded-xl">
-                  <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Installed &amp; Active</span>
+              {/* Card 2: PWA Web App */}
+              <div className="bg-[#111116] border border-white/5 rounded-2xl p-5 flex flex-col justify-between items-center text-center hover:border-indigo-500/20 transition-all">
+                <div className="mb-4">
+                  <div className="w-10 h-10 rounded-full bg-indigo-600/10 border border-indigo-500/20 text-indigo-450 flex items-center justify-center mx-auto mb-2">
+                    <Smartphone className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-bold text-xs text-white uppercase tracking-wider">Web App (PWA)</h4>
+                  <p className="text-[10px] text-zinc-500 mt-1 max-w-[180px]">
+                    Install instantly on Chrome, Safari, or Edge without files.
+                  </p>
                 </div>
-              ) : isInstallable ? (
-                <button
-                  onClick={onInstall}
-                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-sans font-bold text-xs rounded-xl shadow-lg shadow-indigo-500/10 hover:shadow-indigo-500/25 transition-all cursor-pointer border-none"
-                >
-                  <Smartphone className="w-3.5 h-3.5 text-white" />
-                  <span>Install App</span>
-                </button>
-              ) : isIOS ? (
-                <button
-                  onClick={onShowIOSPrompt}
-                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-sans font-bold text-xs rounded-xl shadow-lg shadow-indigo-500/10 hover:shadow-indigo-500/25 transition-all cursor-pointer border-none"
-                >
-                  <Smartphone className="w-3.5 h-3.5 text-white" />
-                  <span>Install on iOS</span>
-                </button>
-              ) : (
-                <div className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-white/5 text-zinc-400 font-sans font-bold text-xs rounded-xl">
-                  <span>PWA Supported</span>
-                </div>
-              )}
-              <span className="text-[9px] font-mono text-zinc-650 mt-2">
-                Instant • Offline Support
-              </span>
+
+                {isAppInstalled ? (
+                  <div className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-450 font-sans font-bold text-xs rounded-xl">
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Installed &amp; Active</span>
+                  </div>
+                ) : isInstallable ? (
+                  <button
+                    onClick={onInstall}
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-sans font-bold text-xs rounded-xl shadow-lg shadow-indigo-500/10 hover:shadow-indigo-500/25 transition-all cursor-pointer border-none"
+                  >
+                    <Smartphone className="w-3.5 h-3.5 text-white" />
+                    <span>Install App</span>
+                  </button>
+                ) : isIOS ? (
+                  <button
+                    onClick={onShowIOSPrompt}
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-sans font-bold text-xs rounded-xl shadow-lg shadow-indigo-500/10 hover:shadow-indigo-500/25 transition-all cursor-pointer border-none"
+                  >
+                    <Smartphone className="w-3.5 h-3.5 text-white" />
+                    <span>Install on iOS</span>
+                  </button>
+                ) : (
+                  <div className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-white/5 text-zinc-400 font-sans font-bold text-xs rounded-xl">
+                    <span>PWA Supported</span>
+                  </div>
+                )}
+                <span className="text-[9px] font-mono text-zinc-650 mt-2">
+                  Instant • Offline Support
+                </span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Recently Played Section */}
       {recentlyPlayedSongs.length > 0 && (

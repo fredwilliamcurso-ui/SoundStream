@@ -510,8 +510,9 @@ export default function Navigation({
     else baseItems = [...listenerMenuItems];
 
     const items = [...baseItems];
+    const isRunningNatively = typeof window !== "undefined" && (window as any).Capacitor !== undefined;
 
-    if (!isAppInstalled) {
+    if (!isAppInstalled && !isRunningNatively) {
       if (isInstallable) {
         items.push({
           id: "install-pwa",
