@@ -1,0 +1,58 @@
+name: Build Android App Bundle
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '21'
+          cache: 'gradle'
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Build web assets
+        run: npm run build
+
+      - name: Sync with Capacitor
+        run: npx cap sync android
+
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
+
+      - name: Build signed Android App Bundle
+        run: |
+          cd android
+          ./gradlew bundleRelease
+        env:
+          SOUNDSTREAM_KEYSTORE_PASSWORD: ${{ secrets.SOUNDSTREAM_KEYSTORE_PASSWORD }}
+          SOUNDSTREAM_KEY_ALIAS: ${{ secrets.SOUNDSTREAM_KEY_ALIAS }}
+          SOUNDSTREAM_KEY_PASSWORD: ${{ secrets.SOUNDSTREAM_KEY_PASSWORD }}
+
+      - name: Upload Android App Bundle (.aab) artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error

@@ -1,0 +1,54 @@
+format_version: "13"
+default_step_lib_source: https://github.com/bitrise-io/bitrise-steplib.git
+project_type: android
+
+trigger_map:
+  - push_branch: main
+    workflow: release
+  - pull_request_source_branch: "*"
+    workflow: release
+
+workflows:
+  release:
+    summary: Build and Sign Android App Bundle (AAB) for SoundStream
+    description: This workflow builds the React web application, syncs with Capacitor, compile the Android project using Gradle, and uploads the signed .aab artifact.
+    steps:
+      - activate-ssh-key@4:
+          run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | not_eq ""}}'
+      - git-clone@8: {}
+      - cache-pull@2: {}
+      - install-npm-packages@2:
+          title: Install Node Dependencies
+          inputs:
+            - workdir: .
+      - script@6:
+          title: Compile React & Capacitor
+          inputs:
+            - content: |-
+                #!/bin/bash
+                set -ex
+                # Build the React web package
+                npm run build
+                # Sync compiled assets with Capacitor Android
+                npx cap sync android
+      - install-missing-android-tools@3:
+          title: Install Missing Android SDK Tools
+          inputs:
+            - gradlew_path: android/gradlew
+      - android-build@1:
+          title: Build Android App Bundle (AAB)
+          inputs:
+            - project_path: android
+            - module: app
+            - variant: release
+            - build_type: aab
+      - cache-push@2: {}
+      - deploy-to-bitrise-io@2:
+          title: Upload Build Artifacts to Bitrise
+          inputs:
+            - notify_user_groups: none
+            - is_enable_public_page: "true"
+
+meta:
+  bitrise.io:
+    stack: osx-xcode-15.0.x # A versatile stack containing both Node and Android SDKs
