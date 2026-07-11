@@ -32,24 +32,40 @@ async function main() {
     fs.mkdirSync(publicDir, { recursive: true });
   }
 
-  // 2. Copy Keystore file to public for Admin Dashboard access
-  const srcKeystore = path.join(androidDir, "app/soundstream_release.keystore");
-  const destKeystore = path.join(publicDir, "soundstream_release.keystore");
-  if (fs.existsSync(srcKeystore)) {
-    console.log("Copying release keystore to public folder for dashboard download...");
-    fs.copyFileSync(srcKeystore, destKeystore);
-  } else {
-    console.warn("⚠️ Warning: soundstream_release.keystore not found at standard path.");
-  }
-
-  // 3. Clean and build production web assets
+  // 2. Clean and build production web assets
   console.log("\n📦 Step 1: Compiling React web bundle with Vite...");
   if (!runCmd("npm run build")) {
     console.error("❌ Web assets compilation failed.");
     process.exit(1);
   }
 
-  // 4. Sync assets and plugins with Capacitor Android project
+  // 2.5 Clean up any large artifacts or keystores from the built dist folder so they aren't synced into the APK
+  const distDir = path.join(rootDir, "dist");
+  if (fs.existsSync(distDir)) {
+    console.log("\n🧹 Cleaning up any large binaries/artifacts from built dist folder before sync...");
+    const cleanFilesRecursively = (dir) => {
+      const files = fs.readdirSync(dir);
+      for (const file of files) {
+        const fullPath = path.join(dir, file);
+        if (fs.statSync(fullPath).isDirectory()) {
+          cleanFilesRecursively(fullPath);
+        } else {
+          const ext = path.extname(file).toLowerCase();
+          if (ext === ".apk" || ext === ".aab" || ext === ".keystore" || file.includes("soundstream_release")) {
+            console.log(`Removing build artifact from sync payload: ${file}`);
+            try {
+              fs.unlinkSync(fullPath);
+            } catch (err) {
+              console.warn(`Failed to delete ${file}:`, err.message);
+            }
+          }
+        }
+      }
+    };
+    cleanFilesRecursively(distDir);
+  }
+
+  // 3. Sync assets and plugins with Capacitor Android project
   console.log("\n🔄 Step 2: Synchronizing assets and plugins with Capacitor...");
   if (!runCmd("npx cap sync android")) {
     console.error("❌ Capacitor sync failed.");
@@ -153,6 +169,21 @@ async function main() {
       console.error("❌ Error: Release APK directory does not exist!");
       process.exit(1);
     }
+  }
+
+  // 8. Copy Keystore file to public for Admin Dashboard access AFTER compiling web assets (no-recursive sync copy)
+  const srcKeystore = path.join(androidDir, "app/soundstream_release.keystore");
+  const destKeystore = path.join(publicDir, "soundstream_release.keystore");
+  if (fs.existsSync(srcKeystore)) {
+    console.log("\n🎉 SUCCESS: Copying release keystore to public folder for dashboard download...");
+    try {
+      fs.copyFileSync(srcKeystore, destKeystore);
+      summary += "✅ Release keystore copied to public for secure admin download.\n";
+    } catch (keystoreErr) {
+      console.warn("⚠️ Warning: Failed to copy release keystore:", keystoreErr.message);
+    }
+  } else {
+    console.warn("⚠️ Warning: soundstream_release.keystore not found at standard path.");
   }
 
   console.log("\n=========================================================================");

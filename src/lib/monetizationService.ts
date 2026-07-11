@@ -27,11 +27,11 @@ import {
 
 // AdMob Production IDs vs Test IDs as requested in guidelines
 export const ADMOB_IDS = {
-  BANNER: process.env.VITE_ADMOB_BANNER_ID || "ca-app-pub-3940256099942544/6300978111",
-  INTERSTITIAL: process.env.VITE_ADMOB_INTERSTITIAL_ID || "ca-app-pub-3940256099942544/1033173712",
-  REWARDED: process.env.VITE_ADMOB_REWARDED_ID || "ca-app-pub-3940256099942544/5224354917",
-  NATIVE: process.env.VITE_ADMOB_NATIVE_ID || "ca-app-pub-3940256099942544/2247696110",
-  APP_OPEN: process.env.VITE_ADMOB_APP_OPEN_ID || "ca-app-pub-3940256099942544/3419835294"
+  BANNER: import.meta.env.VITE_ADMOB_BANNER_ID || "ca-app-pub-3940256099942544/6300978111",
+  INTERSTITIAL: import.meta.env.VITE_ADMOB_INTERSTITIAL_ID || "ca-app-pub-3940256099942544/1033173712",
+  REWARDED: import.meta.env.VITE_ADMOB_REWARDED_ID || "ca-app-pub-3940256099942544/5224354917",
+  NATIVE: import.meta.env.VITE_ADMOB_NATIVE_ID || "ca-app-pub-3940256099942544/2247696110",
+  APP_OPEN: import.meta.env.VITE_ADMOB_APP_OPEN_ID || "ca-app-pub-3940256099942544/3419835294"
 };
 
 // Map plan types to their billing costs (USD)
