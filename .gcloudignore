@@ -1,0 +1,32 @@
+.gcloudignore
+.git
+.gitignore
+.dockerignore
+node_modules
+dist
+android
+.gradle
+.env*
+.github
+.gitlab-ci.yml
+bitrise.yml
+codemagic.yaml
+billing_db.json
+
+# Temporary files and caches
+.cache
+.npm
+.eslintcache
+*.log
+tmp
+temp
+
+# Exclude generated binaries and archives globally
+*.apk
+*.aab
+*.keystore
+*.zip
+*.tar
+*.gz
+*.tgz
+
