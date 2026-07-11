@@ -99,16 +99,20 @@ async function main() {
     process.exit(1);
   }
 
-  console.log("Running gradlew bundleRelease...");
-  const buildSuccess = runCmd("./gradlew bundleRelease", androidDir);
+  console.log("Running gradlew bundleRelease assembleRelease...");
+  const buildSuccess = runCmd("./gradlew bundleRelease assembleRelease", androidDir);
   if (!buildSuccess) {
-    console.error("❌ Gradle bundleRelease failed.");
+    console.error("❌ Gradle build failed.");
     process.exit(1);
   }
 
-  // 7. Copy generated .aab to public folder for dashboard download
+  // 7. Copy generated .aab and .apk to public folder for dashboard download
   const srcAab = path.join(androidDir, "app/build/outputs/bundle/release/app-release.aab");
   const destAab = path.join(publicDir, "app-release.aab");
+  const srcApk = path.join(androidDir, "app/build/outputs/apk/release/app-release.apk");
+  const destApk = path.join(publicDir, "app-release.apk");
+
+  let summary = "";
 
   if (fs.existsSync(srcAab)) {
     console.log("\n🎉 SUCCESS: Production Android App Bundle (.aab) successfully compiled!");
@@ -116,11 +120,45 @@ async function main() {
     console.log("Copying AAB to public folder for administrator download...");
     fs.copyFileSync(srcAab, destAab);
     console.log(`Public Path: ${destAab}`);
-    console.log("=========================================================================");
+    summary += "✅ Production AAB compiled successfully.\n";
   } else {
-    console.error(`\n❌ Error: Build succeeded but app-release.aab was not found at expected path: ${srcAab}`);
+    console.error(`\n❌ Error: app-release.aab was not found at expected path: ${srcAab}`);
     process.exit(1);
   }
+
+  if (fs.existsSync(srcApk)) {
+    console.log("\n🎉 SUCCESS: Production Android Package (.apk) successfully compiled!");
+    console.log(`Source Path: ${srcApk}`);
+    console.log("Copying APK to public folder for administrator download...");
+    fs.copyFileSync(srcApk, destApk);
+    console.log(`Public Path: ${destApk}`);
+    summary += "✅ Production APK compiled successfully.\n";
+  } else {
+    console.warn(`\n⚠️ Warning: app-release.apk was not found at expected path: ${srcApk}. Let's look for universal or other apks.`);
+    // Try to find any other apk in release folder
+    const apkDir = path.dirname(srcApk);
+    if (fs.existsSync(apkDir)) {
+      const files = fs.readdirSync(apkDir);
+      const apkFiles = files.filter(f => f.endsWith(".apk"));
+      if (apkFiles.length > 0) {
+        const fallbackSrc = path.join(apkDir, apkFiles[0]);
+        console.log(`Found alternative APK: ${fallbackSrc}, copying to ${destApk}...`);
+        fs.copyFileSync(fallbackSrc, destApk);
+        summary += "✅ Production APK compiled successfully (alternative path).\n";
+      } else {
+        console.error("❌ Error: No APK files found in release directory!");
+        process.exit(1);
+      }
+    } else {
+      console.error("❌ Error: Release APK directory does not exist!");
+      process.exit(1);
+    }
+  }
+
+  console.log("\n=========================================================================");
+  console.log("📊 BUILD PIPELINE SUMMARY:");
+  console.log(summary);
+  console.log("=========================================================================");
 }
 
 main().catch(err => {

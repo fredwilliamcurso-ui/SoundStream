@@ -35,4 +35,5 @@ build_android:
     name: "android-release-bundle"
     paths:
       - public/app-release.aab
+      - public/app-release.apk
     expire_in: 1 week
