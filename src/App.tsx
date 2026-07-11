@@ -55,6 +55,7 @@ import SoundStreamAdsManager from "./components/SoundStreamAdsManager";
 import { motion, AnimatePresence } from "motion/react";
 import { analytics } from "./lib/analytics";
 import { crashlytics } from "./lib/google-services";
+import { SplashScreen } from "@capacitor/splash-screen";
 
 import { Music, AlertCircle, Award, Sparkles, Smartphone, Download, X, Share } from "lucide-react";
 
@@ -200,6 +201,13 @@ export default function App() {
     };
 
     checkIsInstalled();
+
+    // Dismiss Capacitor splash screen if running on native mobile
+    SplashScreen.hide().then(() => {
+      console.log("Capacitor SplashScreen hidden successfully.");
+    }).catch((err) => {
+      console.log("Capacitor SplashScreen.hide info (non-fatal):", err);
+    });
     
     // Also monitor changes to display-mode
     const mediaQuery = window.matchMedia("(display-mode: standalone)");
