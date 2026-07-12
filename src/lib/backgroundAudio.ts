@@ -18,6 +18,9 @@ export interface BackgroundAudioPlugin {
     duration?: number;
     position?: number;
   }): Promise<void>;
+  setKeepScreenOn(options: {
+    keepOn: boolean;
+  }): Promise<void>;
 }
 
 export const BackgroundAudio = Capacitor.isNativePlatform()

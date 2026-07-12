@@ -140,4 +140,27 @@ public class BackgroundAudioPlugin extends Plugin implements BackgroundAudioServ
         ret.put("position", positionMs / 1000.0); // convert back to seconds
         notifyListeners("onSeek", ret);
     }
+
+    @PluginMethod
+    public void setKeepScreenOn(final PluginCall call) {
+        final boolean keepOn = call.getBoolean("keepOn", false);
+        getBridge().getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    if (keepOn) {
+                        getBridge().getActivity().getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                        Log.d(TAG, "Keep screen ON flag added");
+                    } else {
+                        getBridge().getActivity().getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                        Log.d(TAG, "Keep screen ON flag cleared");
+                    }
+                    call.resolve();
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to set keep screen on: " + e.getMessage());
+                    call.reject("Failed to set keep screen on", e);
+                }
+            }
+        });
+    }
 }

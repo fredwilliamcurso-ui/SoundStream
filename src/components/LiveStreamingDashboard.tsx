@@ -121,6 +121,7 @@ import { createBattleInvite, declineBattleInvite, acceptBattleInvite, sendBattle
 import GiftStoreModal from "./GiftStoreModal";
 import GiftingOverlay from "./GiftingOverlay";
 import SoundStreamLive3DRoom, { isWebGLAvailable } from "./SoundStreamLive3DRoom";
+import { BackgroundAudio } from "../lib/backgroundAudio";
 
 interface LiveStreamingDashboardProps {
   currentUser: User | null;
@@ -353,6 +354,21 @@ export default function LiveStreamingDashboard({
     }, 400);
     return () => clearInterval(timer);
   }, []);
+
+  // Keep screen active during an active livestream session
+  useEffect(() => {
+    if (BackgroundAudio && activeStream) {
+      BackgroundAudio.setKeepScreenOn({ keepOn: true })
+        .then(() => console.log("[KeepScreenOn] Activated screen wake lock for livestream"))
+        .catch(err => console.error("[KeepScreenOn] Failed to activate:", err));
+      
+      return () => {
+        BackgroundAudio.setKeepScreenOn({ keepOn: false })
+          .then(() => console.log("[KeepScreenOn] Deactivated screen wake lock"))
+          .catch(err => console.error("[KeepScreenOn] Failed to deactivate:", err));
+      };
+    }
+  }, [activeStream]);
 
   // ==========================================
   // 2026 PLATFORM LIVESTREAM ENGAGEMENT HUB
