@@ -1346,8 +1346,8 @@ export default function AdminDashboard({
     { id: "analytics", label: "Analytics", icon: TrendingUp, color: "text-teal-400" },
     { id: "monetization", label: "Monetization", icon: Tag, color: "text-yellow-400" },
     { id: "android", label: "Android Release", icon: Smartphone, color: "text-blue-400" },
-    { id: "firebase", label: "Firebase", icon: HardDrive, color: "text-orange-500" },
-    { id: "supabase", label: "Supabase", icon: Globe, color: "text-sky-400" },
+    { id: "firebase", label: "Firebase Diagnostics", icon: HardDrive, color: "text-orange-500" },
+    { id: "supabase", label: "Firebase Storage", icon: Globe, color: "text-sky-400" },
     { id: "google-integrations", label: "Google Console", icon: Chrome, color: "text-blue-500" },
     { id: "support", label: `Support (${supportInquiries.filter(t => !t.resolved).length})`, icon: MessageSquare, color: "text-violet-400" },
     { id: "legal", label: "Legal & DMCA", icon: Scale, color: "text-stone-400" },
@@ -2778,14 +2778,14 @@ export default function AdminDashboard({
                 </div>
               )}
 
-              {/* SECTION: SUPABASE */}
+              {/* SECTION: FIREBASE STORAGE */}
               {activeTab === "supabase" && (
                 <div className="bg-white/5 border border-white/5 rounded-3xl p-6 space-y-6">
                   <div className="flex items-start gap-4 border-b border-white/5 pb-4">
                     <Globe className="w-8 h-8 text-sky-400" />
                     <div>
                       <h3 className="font-sans font-bold text-sm text-zinc-200 uppercase tracking-wide">
-                        Supabase Connection Status
+                        Firebase Storage Connection Status
                       </h3>
                       <p className="text-xs text-zinc-500">Verify client integration configuration for secure file distribution assets storage.</p>
                     </div>
@@ -2794,16 +2794,16 @@ export default function AdminDashboard({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="bg-zinc-950/40 border border-white/5 p-5 rounded-2xl space-y-3 font-mono text-xs">
                       <p className="font-mono text-[9.5px] uppercase text-zinc-500 font-bold">Integration details</p>
-                      <div className="flex justify-between"><span className="text-zinc-500">Supabase Bucket:</span> <span className="text-sky-300 font-bold">soundstream-assets</span></div>
+                      <div className="flex justify-between"><span className="text-zinc-500">Firebase Storage Bucket:</span> <span className="text-sky-300 font-bold">project-8462457c-9513-4dcb-9e9.firebasestorage.app</span></div>
                       <div className="flex justify-between"><span className="text-zinc-500">Connection Mode:</span> <span className="text-emerald-400">Direct Client SDK</span></div>
-                      <div className="flex justify-between"><span className="text-zinc-500">Storage API:</span> <span className="text-zinc-300">v1 Object Storage</span></div>
+                      <div className="flex justify-between"><span className="text-zinc-500">Storage API:</span> <span className="text-zinc-300">Firebase Storage v1</span></div>
                     </div>
 
                     <div className="bg-zinc-950/40 border border-white/5 p-5 rounded-2xl space-y-3">
                       <p className="font-mono text-[9.5px] uppercase text-zinc-500 font-bold font-mono">Bucket Assets health</p>
                       <div className="flex items-center gap-2 text-emerald-400 font-bold font-mono text-xs">
                         <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                        SUPABASE CONNECTION HEALTHY
+                        FIREBASE STORAGE HEALTHY
                       </div>
                       <p className="text-[11px] text-zinc-400 leading-normal mt-2">
                         Lossless audio audio, artwork files, and video streams are synchronized successfully via CDN edge cache distribution.

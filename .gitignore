@@ -7,7 +7,10 @@ coverage
 .env*
 !.env.example
 build.pid
-android
+android/app/build
+android/.gradle
+android/local.properties
+android/captures
 .gradle
 .cache
 .npm

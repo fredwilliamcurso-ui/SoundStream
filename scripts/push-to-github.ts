@@ -80,7 +80,8 @@ async function main() {
     console.log("✨ No changes to commit.");
   } else {
     console.log("Changes found. Creating commit...");
-    runCmd('git commit -m "chore: Restore project to yesterday\'s stable commit and integrate Audiomark production Android build baseline"');
+    const msg = process.env.COMMIT_MESSAGE || "fix: Add AdMob APPLICATION_ID metadata in AndroidManifest to prevent native startup crash";
+    runCmd(`git commit -m "${msg}"`);
   }
 
   // 7. Push to GitHub

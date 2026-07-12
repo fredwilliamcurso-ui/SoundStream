@@ -2,8 +2,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { initializeFirestore, DocumentSnapshot } from "firebase/firestore";
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
-
-import { uploadFile } from "./supabase";
+import firebaseConfigData from "../../firebase-applet-config.json";
 
 // Global helper to sanitize any incoming corrupted plain-object FieldValues (e.g. from previous bad writes)
 function sanitizeIncomingData(data: any): any {
@@ -41,20 +40,14 @@ DocumentSnapshot.prototype.data = function (options?: any) {
   return sanitizeIncomingData(data);
 };
 
-// Firebase Config
-const rawAuthDomain = (import.meta as any).env.VITE_FIREBASE_AUTH_DOMAIN;
-const defaultAuthDomain = "project-8462457c-9513-4dcb-9e9.firebaseapp.com";
-const resolvedAuthDomain = (rawAuthDomain && (rawAuthDomain.endsWith(".firebaseapp.com") || rawAuthDomain.endsWith(".web.app")))
-  ? rawAuthDomain
-  : defaultAuthDomain;
-
+// Firebase Config loaded from firebase-applet-config.json
 export const firebaseConfig = {
-  apiKey: (import.meta as any).env.VITE_FIREBASE_API_KEY || "AIzaSyDkmniMTxAENBxtDbKJWbk98MzJ2nQwGiw",
-  authDomain: resolvedAuthDomain,
-  projectId: (import.meta as any).env.VITE_FIREBASE_PROJECT_ID || "project-8462457c-9513-4dcb-9e9",
-  storageBucket: (import.meta as any).env.VITE_FIREBASE_STORAGE_BUCKET || undefined,
-  messagingSenderId: (import.meta as any).env.VITE_FIREBASE_MESSAGING_SENDER_ID || undefined,
-  appId: (import.meta as any).env.VITE_FIREBASE_APP_ID || undefined,
+  apiKey: (import.meta as any).env.VITE_FIREBASE_API_KEY || firebaseConfigData.apiKey,
+  authDomain: (import.meta as any).env.VITE_FIREBASE_AUTH_DOMAIN || firebaseConfigData.authDomain,
+  projectId: (import.meta as any).env.VITE_FIREBASE_PROJECT_ID || firebaseConfigData.projectId,
+  storageBucket: (import.meta as any).env.VITE_FIREBASE_STORAGE_BUCKET || firebaseConfigData.storageBucket || "project-8462457c-9513-4dcb-9e9.firebasestorage.app",
+  messagingSenderId: (import.meta as any).env.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseConfigData.messagingSenderId,
+  appId: (import.meta as any).env.VITE_FIREBASE_APP_ID || firebaseConfigData.appId,
 };
 
 const app = initializeApp(firebaseConfig);
@@ -63,13 +56,26 @@ export const auth = getAuth(app);
 // Use custom databaseId to prevent "Permission Denied" in AI Studio
 export const db = initializeFirestore(app, {}, "ai-studio-a456ed2d-95ac-4aa8-8590-32ae5d6e0f4a");
 
-// Re-export uploadFile from supabase as uploadToStorage for backward compatibility if needed
+// Generic upload function for Firebase Storage
+export async function uploadToFirebaseStorage(file: File, folder: string): Promise<string> {
+  const storage = getStorage(app);
+  const fileExt = file.name.split('.').pop() || '';
+  const cleanFileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+  const filePath = `${folder}/${cleanFileName}`;
+  
+  const pRef = storageRef(storage, filePath);
+  const snapshot = await uploadBytes(pRef, file);
+  const downloadURL = await getDownloadURL(snapshot.ref);
+  return downloadURL;
+}
+
+// Re-export uploadToStorage using Firebase Storage
 export async function uploadToStorage(
   file: File,
   bucket: "songs" | "covers" | "videos" | "audio"
 ): Promise<string> {
-  const targetBucket = bucket === "audio" ? "songs" : bucket;
-  return uploadFile(file, targetBucket);
+  const folder = bucket === "audio" ? "songs" : bucket;
+  return uploadToFirebaseStorage(file, folder);
 }
 
 // Upload profile picture with validation
@@ -86,40 +92,26 @@ export async function uploadProfilePicture(userId: string, file: File): Promise<
   }
 
   try {
-    const storage = getStorage(app);
-    const fileExt = file.name.split('.').pop() || 'jpg';
-    const filePath = `users/${userId}/profile_${Date.now()}.${fileExt}`;
-    const pRef = storageRef(storage, filePath);
-    
-    const snapshot = await uploadBytes(pRef, file);
-    const downloadURL = await getDownloadURL(snapshot.ref);
-    return downloadURL;
+    return await uploadToFirebaseStorage(file, `users/${userId}`);
   } catch (error: any) {
-    console.warn("Firebase Storage upload failed or is not initialized, attempting fallback to Supabase:", error);
-    try {
-      // Fallback upload to Supabase "covers" bucket
-      const url = await uploadFile(file, "covers");
-      return url;
-    } catch (fallbackError: any) {
-      console.error("All storage options failed:", fallbackError);
-      throw new Error(`Profile image upload failed: ${error.message || error}`);
-    }
+    console.error("Firebase Storage upload failed:", error);
+    throw new Error(`Profile image upload failed: ${error.message || error}`);
   }
 }
 
 // Audio upload
 export async function uploadSong(file: File) {
-  return uploadFile(file, "songs");
+  return uploadToFirebaseStorage(file, "songs");
 }
 
 // Cover upload
 export async function uploadCover(file: File) {
-  return uploadFile(file, "covers");
+  return uploadToFirebaseStorage(file, "covers");
 }
 
 // Video upload
 export async function uploadVideo(file: File) {
-  return uploadFile(file, "videos");
+  return uploadToFirebaseStorage(file, "videos");
 }
 
 export enum OperationType {

@@ -152,9 +152,11 @@ export default function App() {
   const [pendingSongToPlay, setPendingSongToPlay] = useState<Song | null>(null);
   const [tempPremiumRemaining, setTempPremiumRemaining] = useState<number>(0);
 
-  // Initialize AdMob on app startup
+  // Initialize AdMob on app startup (delayed non-blocking after Home screen loads)
   useEffect(() => {
-    admob.initialize();
+    const adTimer = setTimeout(() => {
+      admob.initialize().catch(err => console.error("Delayed AdMob init failed:", err));
+    }, 3500);
 
     // Check temporary premium remaining minutes countdown
     setTempPremiumRemaining(admob.getTempPremiumRemainingMinutes());
@@ -177,6 +179,7 @@ export default function App() {
     window.addEventListener("open-premium-upgrade", handleUpgradeRequest);
 
     return () => {
+      clearTimeout(adTimer);
       clearInterval(interval);
       window.removeEventListener("open-premium-upgrade", handleUpgradeRequest);
     };

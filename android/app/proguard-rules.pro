@@ -14,8 +14,25 @@
 
 # Uncomment this to preserve the line number information for
 # debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+-keepattributes SourceFile,LineNumberTable
 
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Capacitor Core Keep Rules
+-keep public class * extends com.getcapacitor.BridgeActivity
+-keep public class * extends com.getcapacitor.Plugin
+-keep class com.getcapacitor.** { *; }
+
+# Cordova and Capacitor Plugins Keep Rules
+-keep class com.getcapacitor.community.** { *; }
+-dontwarn com.getcapacitor.community.**
+
+# Firebase & Google Play Services Keep Rules
+-keep class com.google.firebase.** { *; }
+-keep class com.google.android.gms.** { *; }
+-dontwarn com.google.firebase.**
+-dontwarn com.google.android.gms.**
+-dontwarn com.google.errorprone.annotations.**
+

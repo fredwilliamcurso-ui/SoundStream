@@ -204,7 +204,8 @@ async function main() {
     console.log("✨ No changes to commit.");
   } else {
     console.log("Changes found. Creating commit...");
-    runCmd('git commit -m "chore: Restore project to yesterday\'s stable commit and integrate Audiomark production Android build baseline"');
+    const msg = process.env.COMMIT_MESSAGE || "chore: Update Android build files and configs for production stability";
+    runCmd(`git commit -m "${msg}"`);
   }
 
   // 7. Push to GitLab
