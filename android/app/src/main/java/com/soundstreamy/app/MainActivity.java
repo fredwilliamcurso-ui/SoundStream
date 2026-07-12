@@ -6,7 +6,7 @@ import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
     @Override
-    protected void onPause() {
+    public void onPause() {
         super.onPause();
         // Keep WebView timers and media active for background audio playback
         try {
