@@ -5,6 +5,9 @@ import './index.css';
 // 1. Establish premium diagnostic capturing systems
 const startupErrors: any[] = [];
 window.addEventListener("error", (event) => {
+  if (event.message === "Script error." || !event.message) {
+    return;
+  }
   startupErrors.push({
     message: event.message,
     source: event.filename,

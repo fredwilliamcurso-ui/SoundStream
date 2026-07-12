@@ -32,6 +32,10 @@ class CrashlyticsService {
   }
 
   public async logException(error: Error, type = "handled_exception", metadata: Record<string, any> = {}) {
+    if (!error || error.message === "Script error." || !error.message) {
+      // Ignore anonymous cross-origin script errors to avoid cluttering the database/logs
+      return;
+    }
     console.error(`[Crashlytics] Logging: ${error.message}`, error);
 
     try {

@@ -56,6 +56,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { analytics } from "./lib/analytics";
 import { crashlytics } from "./lib/google-services";
 import { SplashScreen } from "@capacitor/splash-screen";
+import { FirstLaunchIntro } from "./components/FirstLaunchIntro";
 
 import { Music, AlertCircle, Award, Sparkles, Smartphone, Download, X, Share } from "lucide-react";
 
@@ -82,6 +83,15 @@ export default function App() {
   // Application routing / view navigation
   const [currentTab, setCurrentTab] = useState<string>("home");
   const [currentPathname, setCurrentPathname] = useState<string>(window.location.pathname);
+
+  // First launch cinematic intro state
+  const [showIntro, setShowIntro] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("soundstream_first_launch_done") !== "true";
+    } catch (e) {
+      return false;
+    }
+  });
 
   // Automatically switch tab to "wallet" if we return from Stripe success/cancel
   useEffect(() => {
@@ -125,6 +135,36 @@ export default function App() {
 
   // Audio/Video media player playback states
   const [currentPlayingSong, setCurrentPlayingSong] = useState<Song | null>(null);
+
+  // Music startup & loading optimization
+  useEffect(() => {
+    if (songs.length > 0) {
+      // 1. If no song is loaded yet, prepare the player with the top track
+      // but keep isPlaying false, so the player bar is ready and clicking play is instant!
+      if (!currentPlayingSong) {
+        setCurrentPlayingSong(songs[0]);
+        console.log("[Music Preloader] Player pre-populated with newest song:", songs[0].title);
+      }
+
+      // 2. Preload the top 3 songs' audio assets asynchronously into browser cache
+      songs.slice(0, 3).forEach((song, idx) => {
+        const audioUrl = song.audioUrl || (song as any).url;
+        if (audioUrl) {
+          const id = `preload-song-${song.id}`;
+          if (!document.getElementById(id)) {
+            const link = document.createElement("link");
+            link.id = id;
+            link.rel = "preload";
+            link.as = "audio";
+            link.href = audioUrl;
+            document.head.appendChild(link);
+            console.log(`[Music Preloader] Background-loaded top ${idx + 1} song:`, song.title);
+          }
+        }
+      });
+    }
+  }, [songs, currentPlayingSong]);
+
   const [currentPlayingVideo, setCurrentPlayingVideo] = useState<Song | null>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [playbackTime, setPlaybackTime] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
@@ -2289,6 +2329,10 @@ export default function App() {
         </div>
       </div>
     );
+  }
+
+  if (showIntro) {
+    return <FirstLaunchIntro onComplete={() => setShowIntro(false)} />;
   }
 
   return (

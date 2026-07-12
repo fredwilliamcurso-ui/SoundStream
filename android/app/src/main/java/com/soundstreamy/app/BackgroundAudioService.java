@@ -387,8 +387,9 @@ public class BackgroundAudioService extends Service {
         builder.setStyle(mediaStyle);
 
         Notification notification = builder.build();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
+        if (Build.VERSION.SDK_INT >= 34) { // 34 is Build.VERSION_CODES.UPSIDE_DOWN_CAKE
+            // FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK is 2
+            startForeground(NOTIFICATION_ID, notification, 2);
         } else {
             startForeground(NOTIFICATION_ID, notification);
         }
