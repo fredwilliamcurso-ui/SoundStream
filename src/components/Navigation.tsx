@@ -513,38 +513,42 @@ export default function Navigation({
 
     const items = [...baseItems];
 
-    // Always add Download Android App option
-    items.push({
-      id: "download-apk",
-      label: "Download Android App",
-      icon: Download,
-      action: () => {
-        // Track APK download event as a conversion
-        analytics.trackEvent("apk_download", currentUser?.uid || "anonymous", currentUser?.email || "anonymous", {
-          fileName: "Soundstream.apk"
-        });
-        const link = document.createElement("a");
-        link.href = "/Soundstream.apk";
-        link.download = "Soundstream.apk";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
-    });
+    const isNativelyRunning = isAppInstalled || (typeof window !== "undefined" && (window as any).Capacitor !== undefined);
 
-    // Always add Install Web App option
-    items.push({
-      id: "install-pwa",
-      label: "Install Web App",
-      icon: Smartphone,
-      action: () => {
-        if (isIOS) {
-          if (onShowIOSPrompt) onShowIOSPrompt();
-        } else {
-          if (onInstall) onInstall();
+    if (!isNativelyRunning) {
+      // Always add Download Android App option
+      items.push({
+        id: "download-apk",
+        label: "Download Android App",
+        icon: Download,
+        action: () => {
+          // Track APK download event as a conversion
+          analytics.trackEvent("apk_download", currentUser?.uid || "anonymous", currentUser?.email || "anonymous", {
+            fileName: "Soundstream.apk"
+          });
+          const link = document.createElement("a");
+          link.href = "/Soundstream.apk";
+          link.download = "Soundstream.apk";
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
         }
-      }
-    });
+      });
+
+      // Always add Install Web App option
+      items.push({
+        id: "install-pwa",
+        label: "Install Web App",
+        icon: Smartphone,
+        action: () => {
+          if (isIOS) {
+            if (onShowIOSPrompt) onShowIOSPrompt();
+          } else {
+            if (onInstall) onInstall();
+          }
+        }
+      });
+    }
 
     return items;
   };

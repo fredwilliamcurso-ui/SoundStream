@@ -2449,7 +2449,7 @@ export default function App() {
       )}
 
       {/* Floating Install/Download Banner */}
-      {true && (
+      {!isAppInstalled && (
         <div className="fixed bottom-24 md:bottom-28 right-4 md:right-10 z-40 animate-fade-in animate-bounce-subtle flex flex-col sm:flex-row gap-2">
           {/* Always offer APK Download */}
           <a
