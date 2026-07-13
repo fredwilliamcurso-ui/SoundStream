@@ -372,11 +372,21 @@ export default function HomeDashboard({
                   className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-sans font-bold text-xs rounded-xl shadow-lg shadow-indigo-500/10 hover:shadow-indigo-500/25 transition-all text-center no-underline border-none cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5 text-white" />
-                  <span>Download APK</span>
+                  <span>Direct Download APK</span>
                 </a>
-                <span className="text-[9px] font-mono text-zinc-650 mt-2">
-                  Size: ~10.4 MB • v1.1.0
-                </span>
+                <div className="flex flex-col items-center gap-1 mt-2">
+                  <span className="text-[9px] font-mono text-zinc-500">
+                    Size: ~11.4 MB • v3.5.0 Latest
+                  </span>
+                  <a
+                    href="https://drive.google.com/file/d/1ul_JJPVklagFQidiFiNDzd95e4AG51l-/view?usp=drivesdk"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[9px] text-[#a78bfa] hover:text-white underline font-medium transition cursor-pointer"
+                  >
+                    Google Drive Mirror Link ↗
+                  </a>
+                </div>
               </div>
 
               {/* Card 2: PWA Web App */}

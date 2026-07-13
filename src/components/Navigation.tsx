@@ -524,7 +524,7 @@ export default function Navigation({
         action: () => {
           // Track APK download event as a conversion
           analytics.trackEvent("apk_download", currentUser?.uid || "anonymous", currentUser?.email || "anonymous", {
-            fileName: "Soundstream.apk"
+            fileName: "Soundstream_v3.5.0.apk"
           });
           const link = document.createElement("a");
           link.href = "/Soundstream.apk";

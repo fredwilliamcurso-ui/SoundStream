@@ -2494,37 +2494,53 @@ export default function App() {
 
       {/* Floating Install/Download Banner */}
       {!isAppInstalled && (
-        <div className="fixed bottom-24 md:bottom-28 right-4 md:right-10 z-40 animate-fade-in animate-bounce-subtle flex flex-col sm:flex-row gap-2">
-          {/* Always offer APK Download */}
-          <a
-            href="/Soundstream.apk"
-            download="Soundstream.apk"
-            onClick={() => {
-              analytics.trackEvent("apk_download", currentUser?.uid || "anonymous", currentUser?.email || "anonymous", {
-                fileName: "Soundstream.apk",
-                location: "floating_install_banner"
-              });
-            }}
-            className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-sans font-bold text-xs rounded-full shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer border-none no-underline"
-          >
-            <Download className="w-4 h-4 text-white animate-pulse" />
-            <span>Download Android App</span>
-          </a>
+        <div className="fixed bottom-24 md:bottom-28 right-4 md:right-10 z-40 animate-fade-in animate-bounce-subtle flex flex-col gap-2">
+          {/* Main Direct Download / Drive hybrid option */}
+          <div className="flex flex-col sm:flex-row gap-2">
+            <a
+              href="/Soundstream.apk"
+              download="Soundstream.apk"
+              onClick={() => {
+                analytics.trackEvent("apk_download", currentUser?.uid || "anonymous", currentUser?.email || "anonymous", {
+                  fileName: "Soundstream.apk",
+                  location: "floating_install_banner"
+                });
+              }}
+              className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-sans font-bold text-xs rounded-full shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer border-none no-underline"
+              title="Download APK Directly"
+            >
+              <Download className="w-4 h-4 text-white animate-pulse" />
+              <span>Download Android App</span>
+            </a>
 
-          {/* Always offer Web App Installation Option */}
-          <button
-            onClick={() => {
-              if (isIOS) {
-                setShowIOSPrompt(true);
-              } else {
-                handleInstallClick();
-              }
-            }}
-            className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-sans font-bold text-xs rounded-full shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer border-none"
-          >
-            <Smartphone className="w-4 h-4 text-white" />
-            <span>Install Web App</span>
-          </button>
+            {/* Always offer Web App Installation Option */}
+            <button
+              onClick={() => {
+                if (isIOS) {
+                  setShowIOSPrompt(true);
+                } else {
+                  handleInstallClick();
+                }
+              }}
+              className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-sans font-bold text-xs rounded-full shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer border-none"
+            >
+              <Smartphone className="w-4 h-4 text-white" />
+              <span>Install Web App</span>
+            </button>
+          </div>
+          
+          {/* Subtle Google Drive backup link */}
+          <div className="flex justify-end pr-2">
+            <a
+              href="https://drive.google.com/file/d/1ul_JJPVklagFQidiFiNDzd95e4AG51l-/view?usp=drivesdk"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[10px] bg-black/60 border border-white/5 px-2.5 py-1 rounded-full text-violet-300 hover:text-white transition flex items-center gap-1 no-underline font-medium hover:bg-black/80"
+            >
+              <Download className="w-2.5 h-2.5" />
+              <span>Drive Mirror Link (v3.5.0) ↗</span>
+            </a>
+          </div>
         </div>
       )}
 
