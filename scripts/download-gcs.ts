@@ -7,7 +7,7 @@ async function main() {
   console.log("📥 SOUNDSTREAMY APK GOOGLE DRIVE RETRIEVAL PIPELINE");
   console.log("=========================================================================");
 
-  const driveUrl = "https://drive.google.com/uc?export=download&id=1EafjT78stixY9aL5T0VaZF46PSViKRSV";
+  const driveUrl = "https://drive.google.com/uc?export=download&id=1ul_JJPVklagFQidiFiNDzd95e4AG51l-";
   const publicDir = path.join(process.cwd(), "public");
   const destPath = path.join(publicDir, "Soundstream.apk");
 
@@ -55,7 +55,7 @@ async function main() {
     console.log(`- Extracted Confirm Token: ${confirm}`);
 
     // Construct download URL
-    const downloadUrl = `https://drive.usercontent.google.com/download?id=1EafjT78stixY9aL5T0VaZF46PSViKRSV&export=download&confirm=${confirm}&uuid=${uuid}`;
+    const downloadUrl = `https://drive.usercontent.google.com/download?id=1ul_JJPVklagFQidiFiNDzd95e4AG51l-&export=download&confirm=${confirm}&uuid=${uuid}`;
     console.log(`\nStep 3: Fetching actual APK file from:`);
     console.log(`URL: ${downloadUrl}`);
 
