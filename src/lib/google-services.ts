@@ -139,7 +139,7 @@ class PerformanceService {
 class RemoteConfigService {
   private configValues: Record<string, any> = {
     enable_admob: true,
-    min_app_version: "1.1.0",
+    min_app_version: "3.5.0",
     premium_monthly_usd: 9.99,
     enable_lossless_audio: true,
     max_offline_sync_tracks: 100

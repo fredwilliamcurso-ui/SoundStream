@@ -360,8 +360,8 @@ app.get("/api/admin/build-status", adminAuthMiddleware, (req, res) => {
     aab: aabStats,
     keystore: keystoreStats,
     packageName: "com.soundstreamy.app",
-    versionCode: 110,
-    versionName: "1.1.0",
+    versionCode: 350,
+    versionName: "3.5.0",
     keyAlias: process.env.SOUNDSTREAM_KEY_ALIAS || "soundstream_alias",
     timestamp: aabStats.exists ? aabStats.modifiedAt : null
   });
