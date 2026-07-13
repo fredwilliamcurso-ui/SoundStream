@@ -2,7 +2,7 @@ import { execSync } from "child_process";
 import https from "https";
 
 const gitlabPat = process.env.GITLAB_PAT;
-const commitSha = "3d4fb10556aa6919f990f86c3e390df4638beb47";
+const commitSha = execSync("git rev-parse HEAD").toString().trim();
 const projectId = "83860265";
 
 if (!gitlabPat) {
