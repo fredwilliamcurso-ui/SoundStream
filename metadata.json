@@ -1,0 +1,6 @@
+{
+  "name": "SoundStream",
+  "description": "An independent music streaming platform built for independent artists to discover, stream, share, and upload music.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
