@@ -27,8 +27,11 @@ async function main() {
   cert.sign(keys.privateKey, forge.md.sha256.create());
 
   console.log("Packaging into PKCS12 Keystore container...");
-  const password = "Ss@2026!Launch#Play";
-  const alias = "soundstream_alias";
+  const password = process.env.SOUNDSTREAM_KEYSTORE_PASSWORD || process.env.SOUNDSTREAM_KEY_PASSWORD || "Ss@2026!Launch#Play";
+  const alias = process.env.SOUNDSTREAM_KEY_ALIAS || "soundstream_alias";
+
+  console.log(`- Using key alias: ${alias}`);
+  console.log(`- Using password of length: ${password.length} chars`);
 
   // toPkcs12Asn creates the ASN.1 structure representing the PKCS#12 container
   const p12Asn = forge.pkcs12.toPkcs12Asn1(keys.privateKey, [cert], password, {

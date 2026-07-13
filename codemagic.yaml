@@ -46,6 +46,7 @@ workflows:
           echo "===================================================="
       - name: Build Android release using Gradle
         script: |
+          npx tsx scripts/generate-keystore.ts
           cd android
           chmod +x gradlew
           ./gradlew bundleRelease assembleRelease --no-daemon --stacktrace
