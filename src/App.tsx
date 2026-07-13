@@ -2497,39 +2497,21 @@ export default function App() {
         <div className="fixed bottom-24 md:bottom-28 right-4 md:right-10 z-40 animate-fade-in animate-bounce-subtle flex flex-col gap-2">
           {/* Main Download and Installation Options */}
           <div className="flex flex-col sm:flex-row gap-2">
-            {/* Google Drive Official Download Link */}
-            <a
-              href="https://drive.google.com/file/d/1ul_JJPVklagFQidiFiNDzd95e4AG51l-/view?usp=drivesdk"
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => {
-                analytics.trackEvent("apk_download", currentUser?.uid || "anonymous", currentUser?.email || "anonymous", {
-                  fileName: "Soundstream_v3.5.0_Drive.apk",
-                  location: "floating_install_banner_drive"
-                });
-              }}
-              className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-sans font-bold text-xs rounded-full shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer border-none no-underline"
-              title="Download APK from Google Drive"
-            >
-              <Download className="w-4 h-4 text-white animate-pulse" />
-              <span>Download Android App (Google Drive)</span>
-            </a>
-
             {/* Direct APK Server Download */}
             <a
               href="/Soundstream.apk"
               download="Soundstream.apk"
               onClick={() => {
                 analytics.trackEvent("apk_download", currentUser?.uid || "anonymous", currentUser?.email || "anonymous", {
-                  fileName: "Soundstream_v3.5.0_Direct.apk",
-                  location: "floating_install_banner_direct"
+                  fileName: "Soundstream_v3.5.0.apk",
+                  location: "floating_install_banner"
                 });
               }}
-              className="flex items-center gap-2 px-5 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white font-sans font-bold text-xs rounded-full shadow-lg border border-white/5 transition-all transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer no-underline"
-              title="Download APK Directly from Server"
+              className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-sans font-bold text-xs rounded-full shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer border-none no-underline"
+              title="Download APK Directly"
             >
-              <Download className="w-4 h-4 text-zinc-400" />
-              <span>Direct APK Download</span>
+              <Download className="w-4 h-4 text-white animate-pulse" />
+              <span>Download Android App</span>
             </a>
 
             {/* Always offer Web App Installation Option */}

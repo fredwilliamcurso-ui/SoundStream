@@ -360,36 +360,20 @@ export default function HomeDashboard({
                   </p>
                 </div>
 
-                <div className="w-full space-y-2">
-                  <a
-                    href="https://drive.google.com/file/d/1ul_JJPVklagFQidiFiNDzd95e4AG51l-/view?usp=drivesdk"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => {
-                      analytics.trackEvent("apk_download", "anonymous", "anonymous", {
-                        fileName: "Soundstream_v3.5.0_Drive.apk",
-                        location: "home_dashboard_promo_drive"
-                      });
-                    }}
-                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-sans font-bold text-xs rounded-xl shadow-lg shadow-indigo-500/10 hover:shadow-indigo-500/25 transition-all text-center no-underline border-none cursor-pointer"
-                  >
-                    <Download className="w-3.5 h-3.5 text-white animate-pulse" />
-                    <span>Download (Google Drive)</span>
-                  </a>
-
+                <div className="w-full">
                   <a
                     href="/Soundstream.apk"
                     download="Soundstream.apk"
                     onClick={() => {
                       analytics.trackEvent("apk_download", "anonymous", "anonymous", {
-                        fileName: "Soundstream_v3.5.0_Direct.apk",
-                        location: "home_dashboard_promo_direct"
+                        fileName: "Soundstream_v3.5.0.apk",
+                        location: "home_dashboard_promo"
                       });
                     }}
-                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white font-sans font-bold text-xs rounded-xl border border-white/5 transition-all text-center no-underline cursor-pointer"
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-sans font-bold text-xs rounded-xl shadow-lg shadow-indigo-500/10 hover:shadow-indigo-500/25 transition-all text-center no-underline border-none cursor-pointer"
                   >
-                    <Download className="w-3.5 h-3.5 text-zinc-450" />
-                    <span>Direct APK Download</span>
+                    <Download className="w-3.5 h-3.5 text-white animate-pulse" />
+                    <span>Download Android App</span>
                   </a>
                 </div>
 

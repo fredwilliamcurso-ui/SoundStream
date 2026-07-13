@@ -516,29 +516,15 @@ export default function Navigation({
     const isNativelyRunning = isAppInstalled || (typeof window !== "undefined" && (window as any).Capacitor !== undefined);
 
     if (!isNativelyRunning) {
-      // Always add Google Drive Download option
+      // Always add Direct APK Download option as the single download entry
       items.push({
-        id: "download-apk-drive",
-        label: "Download App (Google Drive)",
+        id: "download-apk",
+        label: "Download Android App",
         icon: Download,
         action: () => {
           analytics.trackEvent("apk_download", currentUser?.uid || "anonymous", currentUser?.email || "anonymous", {
-            fileName: "Soundstream_v3.5.0_Drive.apk",
-            location: "sidebar_navigation_drive"
-          });
-          window.open("https://drive.google.com/file/d/1ul_JJPVklagFQidiFiNDzd95e4AG51l-/view?usp=drivesdk", "_blank", "noopener,noreferrer");
-        }
-      });
-
-      // Always add Direct APK Download option
-      items.push({
-        id: "download-apk-direct",
-        label: "Direct APK Download",
-        icon: Download,
-        action: () => {
-          analytics.trackEvent("apk_download", currentUser?.uid || "anonymous", currentUser?.email || "anonymous", {
-            fileName: "Soundstream_v3.5.0_Direct.apk",
-            location: "sidebar_navigation_direct"
+            fileName: "Soundstream.apk",
+            location: "sidebar_navigation"
           });
           const link = document.createElement("a");
           link.href = "/Soundstream.apk";
