@@ -53,9 +53,11 @@ import {
   Maximize2,
   Minimize2,
   LogOut,
-  ChevronDown
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import SoundStreamCdnPlayer from "./SoundStreamCdnPlayer";
 import { 
   collection, 
   doc, 
@@ -538,6 +540,16 @@ export default function LiveStreamingDashboard({
   const localVideoTrackRef = useRef<any>(null);
   const [agoraJoined, setAgoraJoined] = useState(false);
   const [agoraBroadcasting, setAgoraBroadcasting] = useState(false);
+
+  // Hybrid CDN-WebRTC Streaming Architecture States (TikTok & Boomplay Style)
+  const [streamingMode, setStreamingMode] = useState<"webrtc" | "cdn">("cdn");
+  const [cdnQuality, setCdnQuality] = useState<"1080p" | "720p" | "480p" | "360p">("1080p");
+  const [cdnVolume, setCdnVolume] = useState(0.8);
+  const [cdnPaused, setCdnPaused] = useState(false);
+  const [customCdnUrl, setCustomCdnUrl] = useState("");
+  const [cdnDelay, setCdnDelay] = useState(2.5);
+  const [cdnBufferHealth, setCdnBufferHealth] = useState(100);
+  const [cdnBitrate, setCdnBitrate] = useState(3850);
   const agoraQueueRef = useRef<Promise<any>>(Promise.resolve());
 
   // A helper to queue asynchronous Agora actions sequentially
@@ -1228,9 +1240,29 @@ export default function LiveStreamingDashboard({
     }
   }, [mySeat?.isMuted, mySeat === null]);
 
+  // Synchronize streamingMode based on Host / Seat / Guest status
+  useEffect(() => {
+    if (!activeStream || !currentUser) return;
+    const isHost = activeStream.creatorId === currentUser.uid;
+    const isOnSeat = !!mySeat;
+    if (isHost || isOnSeat) {
+      // Hosts & Co-hosts/Speakers must always connect via low-latency interactive WebRTC
+      setStreamingMode("webrtc");
+    } else {
+      // Guests/Passive Viewers default to CDN Streaming mode (hybrid architecture)
+      setStreamingMode("cdn");
+    }
+  }, [activeStream?.creatorId, currentUser?.uid, mySeat === null]);
+
   // Initialize and join Agora Voice Channel on room entry
   useEffect(() => {
     if (!activeStream) return;
+
+    if (streamingMode !== "webrtc") {
+      console.log("[Agora] CDN Streaming Mode active for guest. Bypassing Agora WebRTC channel join.");
+      setAgoraJoined(false);
+      return;
+    }
 
     let isDestroyed = false;
     let agoraClient: any = null;
@@ -1402,7 +1434,7 @@ export default function LiveStreamingDashboard({
         setAgoraBroadcasting(false);
       });
     };
-  }, [activeStream?.id, currentUser?.uid]);
+  }, [activeStream?.id, currentUser?.uid, streamingMode]);
 
   // Monitor seat/room state and handle publishing audio and video tracks
   useEffect(() => {
@@ -2270,6 +2302,74 @@ export default function LiveStreamingDashboard({
         console.warn(err);
       }
       setActiveStream(null);
+    }
+  };
+
+  // Switch directly to another active stream (TikTok & Boomplay Style Swipe/Quick Switch)
+  const handleSwitchStream = async (targetStream: LiveStream) => {
+    if (!activeStream || !currentUser || targetStream.id === activeStream.id) return;
+    
+    const prevStream = activeStream;
+    
+    // 1. Instantly update UI for lag-free visual transition
+    setActiveStream(targetStream);
+    setIsHosting(false);
+    
+    // 2. Perform background Firebase cleanup for the previous stream
+    try {
+      // Clean up any seats occupied by the user in previous stream
+      const occupiedSeats = seatsArray.filter(s => s.userId === currentUser.uid);
+      for (const seat of occupiedSeats) {
+        const seatDocRef = doc(db, "liveStreams", prevStream.id, "seats", seat.id);
+        await updateDoc(seatDocRef, {
+          userId: null,
+          username: "",
+          photoURL: "",
+          role: "Listener",
+          isMuted: false,
+          isSpeaking: false,
+          userLevel: null,
+          isVIP: null
+        });
+      }
+      
+      // Decrement viewer count of previous stream
+      await updateDoc(doc(db, "liveStreams", prevStream.id), {
+        viewerCount: increment(-1)
+      });
+      
+      // Previous stream leave announcement
+      await addDoc(collection(db, "liveStreams", prevStream.id, "chat"), {
+        id: `sys_leave_${Date.now()}`,
+        streamId: prevStream.id,
+        senderId: "system",
+        senderName: "SYSTEM",
+        text: `🚪 @${currentUser.username || currentUser.displayName} left to another space.`,
+        createdAt: new Date().toISOString()
+      });
+    } catch (err) {
+      console.warn("Error cleaning up previous stream on quick-switch:", err);
+    }
+    
+    // 3. Perform background Firebase setup for the new stream
+    try {
+      // Increment viewer count of target stream
+      await updateDoc(doc(db, "liveStreams", targetStream.id), {
+        viewerCount: increment(1),
+        totalViewers: increment(1)
+      });
+      
+      // Target stream join announcement
+      await addDoc(collection(db, "liveStreams", targetStream.id, "chat"), {
+        id: `sys_join_${Date.now()}`,
+        streamId: targetStream.id,
+        senderId: "system",
+        senderName: "SYSTEM",
+        text: `👋 @${currentUser.username || currentUser.displayName} has joined via CDN Quick-Switch.`,
+        createdAt: new Date().toISOString()
+      });
+    } catch (err) {
+      console.warn("Error joining next stream on quick-switch:", err);
     }
   };
 
@@ -5347,6 +5447,48 @@ export default function LiveStreamingDashboard({
                       <span>{activeStream.viewerCount || 128}</span>
                     </div>
 
+                    {/* Hybrid Streaming Architecture Info/Toggle Pill (TikTok & Boomplay Style) */}
+                    {activeStream && (
+                      currentUser?.uid === activeStream.creatorId ? (
+                        /* Host Broadcaster CDN Push Status Pill */
+                        <div 
+                          className="flex items-center gap-1.5 bg-violet-950/60 border border-violet-500/20 hover:border-violet-500/40 px-2.5 py-1 rounded-full text-[10px] font-bold text-violet-200 select-none cursor-help"
+                          title="Your WebRTC stream is being transcoded server-side and pushed to RTMP CDN Edge nodes for guests."
+                        >
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                          <span>📡 Broadcast: CDN Push RTMP</span>
+                          <span className="text-[9px] bg-emerald-500/10 text-emerald-400 px-1 py-0.2 rounded font-mono font-bold border border-emerald-500/20">LIVE</span>
+                        </div>
+                      ) : (
+                        /* Guest Protocol Toggle Button with popup explanation */
+                        <div className="relative">
+                          <button
+                            onClick={() => {
+                              const nextMode = streamingMode === "cdn" ? "webrtc" : "cdn";
+                              setStreamingMode(nextMode);
+                              setHubShowToast(
+                                nextMode === "cdn" 
+                                  ? "🪐 Switched to CDN Streaming! Zero-token, low power connection active."
+                                  : "⚡ Switched to Interactive WebRTC! Ultra low-latency (<1s) co-hosting enabled."
+                              );
+                            }}
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold flex items-center gap-1.5 transition cursor-pointer border ${
+                              streamingMode === "cdn"
+                                ? "bg-cyan-950/60 border-cyan-500/20 hover:border-cyan-500/40 text-cyan-200"
+                                : "bg-emerald-950/60 border-emerald-500/20 hover:border-emerald-500/40 text-emerald-200"
+                            }`}
+                            title="Click to toggle between Frictionless CDN Streaming (saves battery) and Interactive WebRTC (ultra low latency)."
+                          >
+                            <span className={`w-2 h-2 rounded-full ${streamingMode === "cdn" ? "bg-cyan-400 animate-pulse" : "bg-emerald-400 animate-pulse"}`} />
+                            <span>
+                              {streamingMode === "cdn" ? "🪐 Protocol: CDN Player" : "⚡ Protocol: Interactive WebRTC"}
+                            </span>
+                            <span className="text-[8px] bg-white/10 px-1 py-0.2 rounded font-mono font-bold">Tweak</span>
+                          </button>
+                        </div>
+                      )
+                    )}
+
                     {/* Background Theme Switcher Button */}
                     <div className="relative">
                       <button
@@ -6261,22 +6403,67 @@ export default function LiveStreamingDashboard({
               ) : (
                   /* Video Stream Layout: Immersive full bleed behind everything */
                   <div className="absolute inset-0 w-full h-full bg-black overflow-hidden z-0">
-                    <div 
-                      ref={videoContainerRef} 
-                      className="w-full h-full bg-black flex items-center justify-center absolute inset-0 z-0"
-                      style={{ filter: cameraFilter }}
-                    >
-                      {currentUser?.uid === activeStream?.creatorId && (
-                        <video 
-                          ref={videoRef} 
-                          autoPlay 
-                          playsInline 
-                          muted
-                          className="w-full h-full object-cover absolute inset-0 z-0" 
-                          style={{ filter: cameraFilter }}
-                        />
-                      )}
-                    </div>
+                    {streamingMode === "cdn" ? (
+                      <SoundStreamCdnPlayer 
+                        activeStream={activeStream}
+                        cameraFilter={cameraFilter}
+                        onSendHeart={handleSendHeart}
+                      />
+                    ) : (
+                      <div 
+                        ref={videoContainerRef} 
+                        onDoubleClick={handleSendHeart}
+                        className="w-full h-full bg-black flex items-center justify-center absolute inset-0 z-0 cursor-pointer select-none"
+                        style={{ filter: cameraFilter }}
+                        title="Double-click to send hearts like TikTok!"
+                      >
+                        {currentUser?.uid === activeStream?.creatorId && (
+                          <video 
+                            ref={videoRef} 
+                            autoPlay 
+                            playsInline 
+                            muted
+                            className="w-full h-full object-cover absolute inset-0 z-0 pointer-events-none" 
+                            style={{ filter: cameraFilter }}
+                          />
+                        )}
+                      </div>
+                    )}
+
+                    {/* TikTok-style Vertical Live Stream Quick-Switch Navigation for Viewers */}
+                    {!isHosting && streams && streams.length > 1 && (
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-4.5 z-40 pointer-events-auto">
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            const currentIndex = streams.findIndex(s => s.id === activeStream?.id);
+                            if (currentIndex !== -1) {
+                              const prevIndex = (currentIndex - 1 + streams.length) % streams.length;
+                              await handleSwitchStream(streams[prevIndex]);
+                            }
+                          }}
+                          className="w-10 h-10 rounded-full bg-black/50 hover:bg-black/80 backdrop-blur-md border border-white/10 hover:border-violet-500 text-white flex items-center justify-center transition shadow-2xl hover:scale-110 active:scale-95 cursor-pointer group"
+                          title="Swipe Up / Previous Stream"
+                        >
+                          <ChevronUp className="w-5 h-5 text-zinc-300 group-hover:text-white group-hover:-translate-y-0.5 transition" />
+                        </button>
+                        
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            const currentIndex = streams.findIndex(s => s.id === activeStream?.id);
+                            if (currentIndex !== -1) {
+                              const nextIndex = (currentIndex + 1) % streams.length;
+                              await handleSwitchStream(streams[nextIndex]);
+                            }
+                          }}
+                          className="w-10 h-10 rounded-full bg-black/50 hover:bg-black/80 backdrop-blur-md border border-white/10 hover:border-[#ff0050] text-white flex items-center justify-center transition shadow-2xl hover:scale-110 active:scale-95 cursor-pointer group"
+                          title="Swipe Down / Next Stream"
+                        >
+                          <ChevronDown className="w-5 h-5 text-zinc-300 group-hover:text-white group-hover:translate-y-0.5 transition" />
+                        </button>
+                      </div>
+                    )}
 
                     {/* Gradient shading overlays for high contrast/readability */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-transparent to-black/85 pointer-events-none z-10" />
