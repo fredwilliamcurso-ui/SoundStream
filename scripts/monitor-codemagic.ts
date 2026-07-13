@@ -57,7 +57,10 @@ async function monitor() {
       if (!Array.isArray(statuses)) {
         console.warn("⚠️ Received unexpected response format from GitLab API:", statuses);
       } else {
-        const codemagicJob = statuses.find(s => s.name?.toLowerCase().includes("codemagic"));
+        const codemagicJob = statuses.find(s => 
+          s.name?.toLowerCase().includes("codemagic") || 
+          s.name?.toLowerCase().includes("build_android")
+        );
 
         if (codemagicJob) {
           console.log(`----------------------------------------------------`);
