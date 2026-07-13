@@ -356,36 +356,47 @@ export default function HomeDashboard({
                   </div>
                   <h4 className="font-bold text-xs text-white uppercase tracking-wider">Android Native App</h4>
                   <p className="text-[10px] text-zinc-500 mt-1 max-w-[180px]">
-                    Download our official, pre-configured direct installation APK.
+                    Install our official App to stream audio and video with native stability.
                   </p>
                 </div>
 
-                <a
-                  href="/Soundstream.apk"
-                  download="Soundstream.apk"
-                  onClick={() => {
-                    analytics.trackEvent("apk_download", "anonymous", "anonymous", {
-                      fileName: "Soundstream.apk",
-                      location: "home_dashboard_promo"
-                    });
-                  }}
-                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-sans font-bold text-xs rounded-xl shadow-lg shadow-indigo-500/10 hover:shadow-indigo-500/25 transition-all text-center no-underline border-none cursor-pointer"
-                >
-                  <Download className="w-3.5 h-3.5 text-white" />
-                  <span>Direct Download APK</span>
-                </a>
-                <div className="flex flex-col items-center gap-1 mt-2">
-                  <span className="text-[9px] font-mono text-zinc-500">
-                    Size: ~11.4 MB • v3.5.0 Latest
-                  </span>
+                <div className="w-full space-y-2">
                   <a
                     href="https://drive.google.com/file/d/1ul_JJPVklagFQidiFiNDzd95e4AG51l-/view?usp=drivesdk"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-[9px] text-[#a78bfa] hover:text-white underline font-medium transition cursor-pointer"
+                    onClick={() => {
+                      analytics.trackEvent("apk_download", "anonymous", "anonymous", {
+                        fileName: "Soundstream_v3.5.0_Drive.apk",
+                        location: "home_dashboard_promo_drive"
+                      });
+                    }}
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-sans font-bold text-xs rounded-xl shadow-lg shadow-indigo-500/10 hover:shadow-indigo-500/25 transition-all text-center no-underline border-none cursor-pointer"
                   >
-                    Google Drive Mirror Link ↗
+                    <Download className="w-3.5 h-3.5 text-white animate-pulse" />
+                    <span>Download (Google Drive)</span>
                   </a>
+
+                  <a
+                    href="/Soundstream.apk"
+                    download="Soundstream.apk"
+                    onClick={() => {
+                      analytics.trackEvent("apk_download", "anonymous", "anonymous", {
+                        fileName: "Soundstream_v3.5.0_Direct.apk",
+                        location: "home_dashboard_promo_direct"
+                      });
+                    }}
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white font-sans font-bold text-xs rounded-xl border border-white/5 transition-all text-center no-underline cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5 text-zinc-450" />
+                    <span>Direct APK Download</span>
+                  </a>
+                </div>
+
+                <div className="flex flex-col items-center gap-1 mt-3">
+                  <span className="text-[9px] font-mono text-zinc-500">
+                    Size: ~11.4 MB • v3.5.0 Latest Release
+                  </span>
                 </div>
               </div>
 
