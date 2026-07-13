@@ -87,6 +87,18 @@ async function main() {
     process.exit(1);
   }
 
+  // 5.5 Check/generate release keystore if missing
+  const keystorePath = path.join(androidDir, "app/soundstream_release.keystore");
+  if (!fs.existsSync(keystorePath)) {
+    console.log("\n🔑 Step 3.5: Release keystore not found. Generating fresh keystore...");
+    if (!runCmd("npx tsx scripts/generate-keystore.ts")) {
+      console.error("❌ Failed to generate release keystore.");
+      process.exit(1);
+    }
+  } else {
+    console.log("\n🔑 Step 3.5: Release keystore already exists. Skipping generation.");
+  }
+
   // 6. Run Gradle build (Clean and BundleRelease)
   console.log("\n🏗️ Step 4: Compiling Android App Bundle (.aab) with Gradle...");
   
