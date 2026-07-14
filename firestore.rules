@@ -605,5 +605,11 @@ service cloud.firestore {
       allow create, update: if isSignedIn() && !isSuspended() && request.auth.uid == userId;
       allow delete: if isAdmin();
     }
+
+    // Music News collection
+    match /music_news/{articleId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
   }
 }

@@ -64,7 +64,7 @@ const ai = new GoogleGenAI({
 });
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
 // Canonical domain and environment-aware host url resolver helper
 function getDynamicHostUrl(req: express.Request): string {
@@ -191,6 +191,12 @@ app.get("/sitemap.xml", async (req, res) => {
 app.get("/soundstream-developers-site-verification", (req, res) => {
   res.setHeader("Content-Type", "text/plain");
   res.send("soundstream-developers-site-verification=IodUUaBmU0IfEytTSjoC8BjV1hfqOMoY");
+});
+
+// Secure dynamic download handler for the official Android APK (bypasses GCP build container/gcloudignore file exclusions)
+app.get("/Soundstream.apk", (req, res) => {
+  console.log("[APK Redirect] Routing production app-download request directly to secure Google Drive hosting.");
+  res.redirect("https://drive.google.com/uc?export=download&id=1ul_JJPVklagFQidiFiNDzd95e4AG51l-");
 });
 
 // SoundStream AI Chat Endpoint

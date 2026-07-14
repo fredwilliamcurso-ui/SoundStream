@@ -699,6 +699,26 @@
         "reviewedAt": { "type": "string" }
       },
       "required": ["id", "campaignId", "status", "reviewedAt"]
+    },
+    "MusicNewsArticle": {
+      "title": "MusicNewsArticle",
+      "description": "Daily music music news and editorial articles published on SoundStream",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique article identifier" },
+        "title": { "type": "string" },
+        "coverUrl": { "type": "string" },
+        "category": { "type": "string", "enum": ["New Releases", "Artist Updates", "Rising Artists", "Music Trends", "Concerts & Events", "Music Industry News"] },
+        "description": { "type": "string" },
+        "content": { "type": "string" },
+        "author": { "type": "string" },
+        "publishedAt": { "type": "string", "description": "Date and time the article was published" },
+        "scheduledAt": { "type": "string", "description": "Date and time scheduled for publication (if future)" },
+        "tags": { "type": "array" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "title", "category", "description", "content", "author", "publishedAt", "createdAt", "updatedAt"]
     }
   },
   "firestore": {
@@ -873,6 +893,10 @@
     "/ads_reviews/{reviewId}": {
       "schema": "AdReview",
       "description": "Advertising quality and copyright reviews"
+    },
+    "/music_news/{articleId}": {
+      "schema": "MusicNewsArticle",
+      "description": "Music News articles collection"
     }
   }
 }

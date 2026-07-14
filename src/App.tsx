@@ -57,6 +57,9 @@ import { analytics } from "./lib/analytics";
 import { crashlytics } from "./lib/google-services";
 import { SplashScreen } from "@capacitor/splash-screen";
 import { FirstLaunchIntro } from "./components/FirstLaunchIntro";
+import MusicNewsView from "./components/MusicNewsView";
+import RadioView from "./components/RadioView";
+import { RestructuredLandingPages } from "./components/RestructuredLandingPages";
 
 import { Music, AlertCircle, Award, Sparkles, Smartphone, Download, X, Share } from "lucide-react";
 
@@ -109,6 +112,85 @@ export default function App() {
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
+
+  // 1. Sync currentPathname to currentTab
+  useEffect(() => {
+    const path = currentPathname;
+    
+    if (path === "/" || path === "/home") {
+      if (currentTab !== "home") setCurrentTab("home");
+    } else if (path === "/music") {
+      if (currentTab !== "home") setCurrentTab("home");
+    } else if (path === "/video") {
+      if (currentTab !== "video") setCurrentTab("video");
+    } else if (path === "/livestream") {
+      if (currentTab !== "live") setCurrentTab("live");
+    } else if (path === "/library") {
+      if (currentTab !== "library") setCurrentTab("library");
+    } else if (path === "/music-news") {
+      if (currentTab !== "music-news") setCurrentTab("music-news");
+    } else if (path === "/radio") {
+      if (currentTab !== "radio") setCurrentTab("radio");
+    } else if (path === "/shorts" || path === "/clips") {
+      if (currentTab !== "shorts") setCurrentTab("shorts");
+    } else if (path === "/games") {
+      if (currentTab !== "games") setCurrentTab("games");
+    } else if (path === "/wallet") {
+      if (currentTab !== "wallet") setCurrentTab("wallet");
+    } else if (path === "/creator-hub" || path === "/for-artists") {
+      if (currentTab !== "creator-hub") setCurrentTab("creator-hub");
+    } else if (path === "/leaderboards") {
+      if (currentTab !== "leaderboards") setCurrentTab("leaderboards");
+    } else if (path === "/agency") {
+      if (currentTab !== "agency") setCurrentTab("agency");
+    } else if (path === "/ads") {
+      if (currentTab !== "ads") setCurrentTab("ads");
+    } else if (path === "/premium") {
+      if (currentTab !== "premium") setCurrentTab("premium");
+    } else if (path === "/admin") {
+      if (currentTab !== "admin") setCurrentTab("admin");
+    } else {
+      // Landing page routing matcher
+      const landingPagePaths = [
+        "/artists", "/trending", "/playlists", "/discover", "/charts", "/podcasts", "/community",
+        "/events", "/ai", "/rising", "/genres", "/fans", "/stories", "/store", "/analytics",
+        "/notifications", "/local", "/awards", "/collab", "/magazine", "/audio", "/ai-discover",
+        "/lyrics", "/create", "/dj", "/producers", "/karaoke", "/channels", "/insights", "/world",
+        "/reviews", "/hall-of-fame", "/releases", "/rewards", "/verified", "/academy", "/feed",
+        "/jobs", "/partners"
+      ];
+      if (landingPagePaths.includes(path)) {
+        if (currentTab !== "landing-page") setCurrentTab("landing-page");
+      }
+    }
+  }, [currentPathname]);
+
+  // 2. Sync currentTab back to browser pathname URL
+  useEffect(() => {
+    const tabToPathMap: Record<string, string> = {
+      "home": "/music",
+      "video": "/video",
+      "live": "/livestream",
+      "library": "/library",
+      "music-news": "/music-news",
+      "radio": "/radio",
+      "shorts": "/clips",
+      "games": "/games",
+      "wallet": "/wallet",
+      "creator-hub": "/for-artists",
+      "leaderboards": "/leaderboards",
+      "agency": "/agency",
+      "ads": "/ads",
+      "premium": "/premium",
+      "admin": "/admin"
+    };
+
+    const targetPath = tabToPathMap[currentTab];
+    if (targetPath && window.location.pathname !== targetPath) {
+      window.history.pushState({}, "", targetPath);
+      setCurrentPathname(targetPath);
+    }
+  }, [currentTab]);
 
   const handleNavigate = (path: string) => {
     window.history.pushState({}, "", path);
@@ -554,6 +636,11 @@ export default function App() {
         case "ads":
           seoTitle = "Self-Serve Ads Manager & Audio Campaigns - SoundStream Ads";
           seoDesc = "Promote your independent tracks, albums, live rooms, or podcasts. Target relevant listeners with the self-serve SoundStream Ad Manager.";
+          break;
+
+        case "music-news":
+          seoTitle = "Latest Music News, New Releases & Artist Spotlight - SoundStream";
+          seoDesc = "Discover daily music news, trending artist updates, concert reviews, and music industry insights on the SoundStream editorial news platform.";
           break;
 
         default:
@@ -2274,6 +2361,35 @@ export default function App() {
             setCurrentTab={setCurrentTab}
           />
         );
+      case "music-news":
+        return (
+          <MusicNewsView
+            currentUser={currentUser}
+            isAdmin={isAdmin}
+          />
+        );
+      case "radio":
+        return (
+          <RadioView
+            currentUser={currentUser}
+            isAdmin={isAdmin}
+            songs={songs}
+            mainPlayerIsPlaying={isPlaying}
+            setMainPlayerIsPlaying={setIsPlaying}
+          />
+        );
+      case "landing-page":
+        return (
+          <RestructuredLandingPages
+            path={currentPathname}
+            onNavigate={handleNavigate}
+            currentUser={currentUser}
+            songs={songs}
+            artists={artists}
+            albums={albums}
+            onSelectSong={onSelectSong}
+          />
+        );
       default:
         return null;
     }
@@ -2383,7 +2499,9 @@ export default function App() {
                 { id: "home", label: "Music" },
                 { id: "video", label: "Video" },
                 { id: "live", label: "Livestream" },
-                { id: "library", label: "Library" }
+                { id: "library", label: "Library" },
+                { id: "music-news", label: "Music News" },
+                { id: "radio", label: "Radio" }
               ].map((section) => {
                 const isActive = currentTab === section.id || 
                   (section.id === "library" && ["library", "playlist", "album", "artist-profile", "artist-profile-own"].includes(currentTab)) ||

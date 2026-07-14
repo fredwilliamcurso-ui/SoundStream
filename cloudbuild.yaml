@@ -1,0 +1,53 @@
+# Google Cloud Build pipeline specification for SoundStream
+# Automatically compiles code, builds a secure container, updates Artifact Registry, and redeploys to Cloud Run
+
+steps:
+  # Step 1: Build the container image using the custom multi-stage Dockerfile
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Build Container Image'
+    args:
+      - 'build'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/soundstream:${COMMIT_SHA}'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/soundstream:latest'
+      - '.'
+
+  # Step 2: Push the unique commit-tagged container image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Push Commit Image to Artifact Registry'
+    args:
+      - 'push'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/soundstream:${COMMIT_SHA}'
+
+  # Step 3: Push the latest-tagged container image to Artifact Registry for caching/reference
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Push Latest Image to Artifact Registry'
+    args:
+      - 'push'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/soundstream:latest'
+
+  # Step 4: Automatically redeploy the newly pushed container revision to Google Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'Deploy to Cloud Run'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'soundstream'
+      - '--image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/soundstream:${COMMIT_SHA}'
+      - '--region=${_REGION}'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+
+# Define easily customizable regional defaults that can be overriden via the trigger config
+substitutions:
+  _REGION: 'europe-west1'
+  _REPOSITORY: 'soundstream-repo'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+images:
+  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/soundstream:${COMMIT_SHA}'
+  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/soundstream:latest'

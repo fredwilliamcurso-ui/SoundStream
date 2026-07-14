@@ -340,6 +340,21 @@ export interface MonetizationNotification {
   read: boolean;
 }
 
+export interface MusicNewsArticle {
+  id: string;
+  title: string;
+  coverUrl: string;
+  category: "New Releases" | "Artist Updates" | "Rising Artists" | "Music Trends" | "Concerts & Events" | "Music Industry News";
+  description: string;
+  content: string;
+  author: string;
+  publishedAt: string;
+  scheduledAt?: string | null;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export * from "./types/agency";
 export * from "./types/ads";
 
