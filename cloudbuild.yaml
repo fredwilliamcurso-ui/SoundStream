@@ -1,0 +1,81 @@
+# Google Cloud Build pipeline specification for SoundStream
+# Automatically compiles code, builds a secure container, updates Artifact Registry, and redeploys to Cloud Run
+
+steps:
+  # Step 0: Automatically verify and auto-create the Artifact Registry repository if it doesn't exist
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'Ensure Artifact Registry Repository'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "Verifying if Artifact Registry repository '${_REPOSITORY}' exists in region '${_REGION}'..."
+        gcloud artifacts repositories describe "${_REPOSITORY}" --location="${_REGION}" || \
+        gcloud artifacts repositories create "${_REPOSITORY}" \
+          --repository-format=docker \
+          --location="${_REGION}" \
+          --description="SoundStream container images"
+
+  # Step 1: Build the container image using Docker with bulletproof tag resolution
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Build Container Image'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        # Use COMMIT_SHA substitution if available (set by git triggers), fallback to git short SHA, fallback to latest
+        TAG="${COMMIT_SHA:-latest}"
+        if [ "$TAG" = "latest" ] && git rev-parse HEAD >/dev/null 2>&1; then
+          TAG=$(git rev-parse --short HEAD)
+        fi
+        echo "$TAG" > /workspace/image-tag.txt
+        echo "Resolved build tag: $TAG"
+        
+        docker build \
+          -t "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/soundstream:$TAG" \
+          -t "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/soundstream:latest" \
+          .
+
+  # Step 2: Push the unique-tagged container image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Push Commit Image to Artifact Registry'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        TAG=$(cat /workspace/image-tag.txt)
+        echo "Pushing unique image with tag: $TAG"
+        docker push "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/soundstream:$TAG"
+
+  # Step 3: Push the latest-tagged container image to Artifact Registry for caching/reference
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Push Latest Image to Artifact Registry'
+    args:
+      - 'push'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/soundstream:latest'
+
+  # Step 4: Automatically redeploy the newly pushed container revision to Google Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'Deploy to Cloud Run'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        TAG=$(cat /workspace/image-tag.txt)
+        echo "Deploying container image to Cloud Run using tag: $TAG"
+        gcloud run deploy soundstream \
+          --image="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/soundstream:$TAG" \
+          --region="${_REGION}" \
+          --platform=managed \
+          --allow-unauthenticated
+
+# Define easily customizable regional defaults that can be overridden via the trigger config
+substitutions:
+  _REGION: 'europe-west1'
+  _REPOSITORY: 'soundstream-repo'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+images:
+  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/soundstream:latest'

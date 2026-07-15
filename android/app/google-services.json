@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1002860778025",
+    "project_id": "project-8462457c-9513-4dcb-9e9",
+    "storage_bucket": "project-8462457c-9513-4dcb-9e9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1002860778025:android:c39ba2e5a7b8e1fc",
+        "android_client_info": {
+          "package_name": "com.soundstreamy.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDkmniMTxAENBxtDbKJWbk98MzJ2nQwGiw"
+        }
+      ],
+      "services": {
+        "appcheck_service": {
+          "registration_status": "STATUS_UNREGISTERED"
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

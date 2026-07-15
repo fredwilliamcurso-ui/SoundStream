@@ -1,0 +1,902 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "SoundStream listener/creator user profile",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Auth UID" },
+        "username": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "role": { "type": "string", "enum": ["listener", "artist", "admin"] },
+        "isSuspended": { "type": "boolean" },
+        "soundstreamId": { "type": "string", "description": "Linked Soundstream Account ID" },
+        "soundstreamUsername": { "type": "string", "description": "Linked Soundstream Username" },
+        "soundstreamAccessToken": { "type": "string", "description": "Soundstream Access Token" },
+        "subscription": {
+          "type": "object",
+          "properties": {
+            "status": { "type": "string", "enum": ["free", "premium"] },
+            "expiresAt": { "type": "string" },
+            "updatedAt": { "type": "string" }
+          },
+          "required": ["status"]
+        }
+      },
+      "required": ["uid", "username", "email", "createdAt", "role"]
+    },
+    "AdLog": {
+      "title": "AdLog",
+      "description": "Log of an ad event",
+      "type": "object",
+      "properties": {
+        "eventType": { "type": "string" },
+        "adUnitId": { "type": "string" },
+        "rewardValue": { "type": "number" },
+        "timestamp": { "type": "string" },
+        "platform": { "type": "string" }
+      },
+      "required": ["eventType", "adUnitId", "platform"]
+    },
+    "Artist": {
+      "title": "Artist",
+      "description": "Artist page metadata details",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "References user UID" },
+        "userId": { "type": "string", "description": "References user ID for backwards compatibility" },
+        "artistName": { "type": "string" },
+        "bio": { "type": "string" },
+        "verified": { "type": "boolean" },
+        "profilePhoto": { "type": "string" },
+        "followersCount": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "isSuspended": { "type": "boolean" },
+        "isFeatured": { "type": "boolean" },
+        "soundstreamId": { "type": "string", "description": "Linked Soundstream Creator Account ID" },
+        "soundstreamUsername": { "type": "string", "description": "Linked Soundstream Creator Username" }
+      },
+      "required": ["uid", "artistName", "followersCount", "createdAt"]
+    },
+    "Song": {
+      "title": "Song",
+      "description": "A single audio track record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "artistId": { "type": "string" },
+        "artistName": { "type": "string" },
+        "title": { "type": "string" },
+        "genre": { "type": "string" },
+        "audioUrl": { "type": "string" },
+        "coverUrl": { "type": "string" },
+        "playCount": { "type": "number" },
+        "lyrics": { "type": "string" },
+        "isFeatured": { "type": "boolean" },
+        "isModerated": { "type": "boolean" }
+      },
+      "required": ["id", "artistId", "artistName", "title", "genre", "audioUrl"]
+    },
+    "Playlist": {
+      "title": "Playlist",
+      "description": "User created playlist of sounds",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "songsList": { "type": "array", "description": "Array of song ID strings" }
+      },
+      "required": ["id", "userId", "name"]
+    },
+    "Like": {
+      "title": "Like",
+      "description": "User liking/favoriting a track",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "songId": { "type": "string" }
+      },
+      "required": ["userId", "songId"]
+    },
+    "Follow": {
+      "title": "Follow",
+      "description": "User following an artist",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "artistId": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["userId", "artistId", "createdAt"]
+    },
+    "Album": {
+      "title": "Album",
+      "description": "An album or EP containing multiple tracks",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "artistId": { "type": "string" },
+        "artistName": { "type": "string" },
+        "description": { "type": "string" },
+        "genre": { "type": "string" },
+        "coverUrl": { "type": "string" },
+        "releaseDate": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "trackCount": { "type": "number" },
+        "totalDuration": { "type": "number" },
+        "isEP": { "type": "boolean" }
+      },
+      "required": ["title", "artistId", "artistName"]
+    },
+    "LikedSong": {
+      "title": "LikedSong",
+      "description": "Tracks liked by users",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "songId": { "type": "string" },
+        "likedAt": { "type": "string" }
+      },
+      "required": ["userId", "songId", "likedAt"]
+    },
+    "RecentlyPlayed": {
+      "title": "RecentlyPlayed",
+      "description": "User play history",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "songId": { "type": "string" },
+        "playedAt": { "type": "string" }
+      },
+      "required": ["userId", "songId", "playedAt"]
+    },
+    "Following": {
+      "title": "Following",
+      "description": "Creators followed by users",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "artistId": { "type": "string" },
+        "followedAt": { "type": "string" }
+      },
+      "required": ["userId", "artistId", "followedAt"]
+    },
+    "SupportTicket": {
+      "title": "SupportTicket",
+      "description": "User feedback or support request ticket",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "subject": { "type": "string" },
+        "message": { "type": "string" },
+        "category": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "userId": { "type": "string" }
+      },
+      "required": ["email", "subject", "message", "category", "status", "createdAt"]
+    },
+    "AnalyticsEvent": {
+      "title": "AnalyticsEvent",
+      "description": "Platform usage analytics event",
+      "type": "object",
+      "properties": {
+        "eventType": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "metadata": { "type": "object" },
+        "timestamp": { "type": "string" },
+        "platform": { "type": "string" }
+      },
+      "required": ["eventType", "userId", "userEmail", "platform"]
+    },
+    "Wallet": {
+      "title": "Wallet",
+      "description": "User's SoundStream Coins wallet",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "balance": { "type": "number" },
+        "totalPurchased": { "type": "number" },
+        "totalSpent": { "type": "number" },
+        "totalReceived": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId", "balance", "totalPurchased", "totalSpent", "totalReceived", "updatedAt"]
+    },
+    "CoinTransaction": {
+      "title": "CoinTransaction",
+      "description": "History of coin purchases or expenditures",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["purchase", "spend", "refund"] },
+        "amount": { "type": "number" },
+        "stripeSessionId": { "type": "string" },
+        "packageName": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "completed", "failed"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "type", "amount", "status", "createdAt"]
+    },
+    "Gift": {
+      "title": "Gift",
+      "description": "Gift catalog items",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "cost": { "type": "number" },
+        "icon": { "type": "string" },
+        "animationType": { "type": "string" },
+        "category": { "type": "string" },
+        "rarity": { "type": "string", "enum": ["common", "uncommon", "rare", "epic", "legendary"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "cost", "icon", "animationType", "category", "rarity", "createdAt"]
+    },
+    "GiftTransaction": {
+      "title": "GiftTransaction",
+      "description": "Virtual gift exchange logs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderPhoto": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "receiverName": { "type": "string" },
+        "streamId": { "type": "string" },
+        "giftId": { "type": "string" },
+        "giftName": { "type": "string" },
+        "giftCost": { "type": "number" },
+        "diamondsEarned": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "senderId", "senderName", "receiverId", "receiverName", "giftId", "giftName", "giftCost", "diamondsEarned", "createdAt"]
+    },
+    "DiamondWallet": {
+      "title": "DiamondWallet",
+      "description": "Creator's Diamond balance and earnings",
+      "type": "object",
+      "properties": {
+        "creatorId": { "type": "string" },
+        "totalDiamonds": { "type": "number" },
+        "estimatedEarnings": { "type": "number" },
+        "withdrawableBalance": { "type": "number" },
+        "totalWithdrawn": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["creatorId", "totalDiamonds", "estimatedEarnings", "withdrawableBalance", "totalWithdrawn", "updatedAt"]
+    },
+    "Withdrawal": {
+      "title": "Withdrawal",
+      "description": "Cash-out requests from creators",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "creatorId": { "type": "string" },
+        "amount": { "type": "number" },
+        "diamondsExchanged": { "type": "number" },
+        "paymentMethod": { "type": "string" },
+        "paymentDetails": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "completed", "failed"] },
+        "requestedAt": { "type": "string" },
+        "processedAt": { "type": "string" }
+      },
+      "required": ["id", "creatorId", "amount", "diamondsExchanged", "paymentMethod", "paymentDetails", "status", "requestedAt"]
+    },
+    "Leaderboard": {
+      "title": "Leaderboard",
+      "description": "Rankings records",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "period": { "type": "string", "enum": ["today", "week", "month", "all"] },
+        "type": { "type": "string", "enum": ["gifters", "creators", "fans"] },
+        "rankings": { "type": "array" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "period", "type", "rankings", "updatedAt"]
+    },
+    "GiftInventory": {
+      "title": "GiftInventory",
+      "description": "User's collection of received/sent gifts",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "giftId": { "type": "string" },
+        "giftName": { "type": "string" },
+        "count": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId", "giftId", "giftName", "count", "updatedAt"]
+    },
+    "LiveBattle": {
+      "title": "LiveBattle",
+      "description": "SoundStream active live PK battles",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "creator1Id": { "type": "string" },
+        "creator1Name": { "type": "string" },
+        "creator1Photo": { "type": "string" },
+        "creator1StreamId": { "type": "string" },
+        "creator2Id": { "type": "string" },
+        "creator2Name": { "type": "string" },
+        "creator2Photo": { "type": "string" },
+        "creator2StreamId": { "type": "string" },
+        "creator1Score": { "type": "number" },
+        "creator2Score": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "finished", "ended_by_admin"] },
+        "duration": { "type": "number" },
+        "startedAt": { "type": "string" },
+        "endsAt": { "type": "string" },
+        "winnerId": { "type": "string" },
+        "endedAt": { "type": "string" }
+      },
+      "required": ["id", "creator1Id", "creator2Id", "creator1Score", "creator2Score", "status", "startedAt", "endsAt"]
+    },
+    "BattleInvite": {
+      "title": "BattleInvite",
+      "description": "Invites sent to creators to start a PK battle",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderPhoto": { "type": "string" },
+        "senderStreamId": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "receiverName": { "type": "string" },
+        "receiverPhoto": { "type": "string" },
+        "receiverStreamId": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "declined", "expired"] },
+        "duration": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "acceptedBattleId": { "type": "string" }
+      },
+      "required": ["id", "senderId", "senderName", "receiverId", "receiverName", "status", "createdAt"]
+    },
+    "BattleScore": {
+      "title": "BattleScore",
+      "description": "Individual battle score tracking and gift logs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "battleId": { "type": "string" },
+        "creatorId": { "type": "string" },
+        "totalScore": { "type": "number" },
+        "giftCount": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "battleId", "creatorId", "totalScore", "giftCount", "updatedAt"]
+    },
+    "BattleResult": {
+      "title": "BattleResult",
+      "description": "Historic archived results of ended PK battles",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "battleId": { "type": "string" },
+        "creator1Id": { "type": "string" },
+        "creator1Score": { "type": "number" },
+        "creator2Id": { "type": "string" },
+        "creator2Score": { "type": "number" },
+        "winnerId": { "type": "string" },
+        "endedAt": { "type": "string" }
+      },
+      "required": ["id", "battleId", "creator1Id", "creator2Id", "creator1Score", "creator2Score", "winnerId", "endedAt"]
+    },
+    "BattleHistory": {
+      "title": "BattleHistory",
+      "description": "Participation logs for PK battle analytics",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "creatorId": { "type": "string" },
+        "battleId": { "type": "string" },
+        "opponentId": { "type": "string" },
+        "opponentName": { "type": "string" },
+        "score": { "type": "number" },
+        "opponentScore": { "type": "number" },
+        "outcome": { "type": "string", "enum": ["win", "loss", "draw"] },
+        "earnings": { "type": "number" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "creatorId", "battleId", "opponentId", "score", "opponentScore", "outcome", "earnings", "timestamp"]
+    },
+    "BattleLeaderboard": {
+      "title": "BattleLeaderboard",
+      "description": "Live PK battle leaderboards",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "enum": ["winners", "gifters", "fans", "creators"] },
+        "period": { "type": "string", "enum": ["today", "week", "month", "all"] },
+        "rankings": { "type": "array" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "type", "period", "rankings", "updatedAt"]
+    },
+    "Agency": {
+      "title": "Agency",
+      "description": "SoundStream Record Label or Agency Profile",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["record_label", "talent_agency", "music_publisher", "management_company"] },
+        "description": { "type": "string" },
+        "website": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "suspended"] },
+        "verificationStatus": { "type": "string", "enum": ["unverified", "pending", "verified"] },
+        "withdrawableBalance": { "type": "number" },
+        "totalRevenue": { "type": "number" },
+        "totalArtists": { "type": "number" },
+        "totalStreams": { "type": "number" }
+      },
+      "required": ["id", "ownerId", "name", "type", "createdAt", "status"]
+    },
+    "AgencyMember": {
+      "title": "AgencyMember",
+      "description": "Team members/staff within an Agency",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "agencyId": { "type": "string" },
+        "userId": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["owner", "manager", "editor", "moderator", "accountant", "marketing_staff", "support_staff"] },
+        "permissions": { "type": "array" },
+        "invitedAt": { "type": "string" },
+        "joinedAt": { "type": "string" },
+        "status": { "type": "string", "enum": ["invited", "active", "suspended"] }
+      },
+      "required": ["id", "agencyId", "userId", "role", "status"]
+    },
+    "AgencyArtist": {
+      "title": "AgencyArtist",
+      "description": "Artists/creators managed by an Agency",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "agencyId": { "type": "string" },
+        "artistId": { "type": "string" },
+        "artistName": { "type": "string" },
+        "artistPhoto": { "type": "string" },
+        "joinedAt": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "active", "removed"] },
+        "managerId": { "type": "string" },
+        "splits": { "type": "object" }
+      },
+      "required": ["id", "agencyId", "artistId", "status"]
+    },
+    "AgencyContract": {
+      "title": "AgencyContract",
+      "description": "Digital contract between Agency and Artist",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "agencyId": { "type": "string" },
+        "artistId": { "type": "string" },
+        "artistName": { "type": "string" },
+        "terms": { "type": "string" },
+        "startDate": { "type": "string" },
+        "endDate": { "type": "string" },
+        "splits": { "type": "object" },
+        "status": { "type": "string", "enum": ["pending", "signed", "rejected", "expired"] },
+        "signatureUrl": { "type": "string" },
+        "signedAt": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "history": { "type": "array" }
+      },
+      "required": ["id", "agencyId", "artistId", "status", "createdAt"]
+    },
+    "AgencyPermission": {
+      "title": "AgencyPermission",
+      "description": "Customizable permission mappings per Agency role",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "roleName": { "type": "string" },
+        "permissions": { "type": "array" }
+      },
+      "required": ["id", "roleName", "permissions"]
+    },
+    "AgencyRevenue": {
+      "title": "AgencyRevenue",
+      "description": "Financial ledger of split revenue events",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "agencyId": { "type": "string" },
+        "artistId": { "type": "string" },
+        "amount": { "type": "number" },
+        "category": { "type": "string", "enum": ["music", "video", "live", "gift", "marketplace", "subscription", "advertising", "creator"] },
+        "splits": { "type": "object" },
+        "splitAmounts": { "type": "object" },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "agencyId", "amount", "category", "createdAt"]
+    },
+    "AgencyNotification": {
+      "title": "AgencyNotification",
+      "description": "Notification center events for Agencies",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "agencyId": { "type": "string" },
+        "type": { "type": "string", "enum": ["artist_upload", "revenue_received", "withdrawal_processed", "contract_signed", "verification_approved", "livestream_started"] },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "agencyId", "type", "title", "message", "read", "createdAt"]
+    },
+    "AgencyVerification": {
+      "title": "AgencyVerification",
+      "description": "Agency/Label verification request submissions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "agencyId": { "type": "string" },
+        "type": { "type": "string", "enum": ["agency", "label", "partner_badge"] },
+        "documents": { "type": "array" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "submittedAt": { "type": "string" },
+        "reviewedAt": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "required": ["id", "agencyId", "type", "status", "submittedAt"]
+    },
+    "AdCampaign": {
+      "title": "AdCampaign",
+      "description": "SoundStream Advertising Campaign",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "advertiserId": { "type": "string" },
+        "name": { "type": "string" },
+        "objective": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected", "active", "paused", "completed"] },
+        "budget": { "type": "number" },
+        "dailyBudget": { "type": "number" },
+        "lifetimeBudget": { "type": "number" },
+        "spent": { "type": "number" },
+        "startDate": { "type": "string" },
+        "endDate": { "type": "string" },
+        "targeting": { "type": "object" },
+        "creative": { "type": "object" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "advertiserId", "name", "objective", "status", "budget"]
+    },
+    "AdCreative": {
+      "title": "AdCreative",
+      "description": "Ad Creative Asset details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "campaignId": { "type": "string" },
+        "format": { "type": "string", "enum": ["banner", "native", "feed", "song", "video", "live", "carousel", "fullscreen", "search", "marketplace"] },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "mediaUrl": { "type": "string" },
+        "destinationUrl": { "type": "string" },
+        "assets": { "type": "array" }
+      },
+      "required": ["id", "campaignId", "format", "title"]
+    },
+    "AdPayment": {
+      "title": "AdPayment",
+      "description": "Advertising system payment transaction",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "advertiserId": { "type": "string" },
+        "amount": { "type": "number" },
+        "currency": { "type": "string" },
+        "status": { "type": "string" },
+        "stripePaymentIntentId": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "advertiserId", "amount", "status", "createdAt"]
+    },
+    "AdBilling": {
+      "title": "AdBilling",
+      "description": "Billing card profile or invoices",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "advertiserId": { "type": "string" },
+        "balance": { "type": "number" },
+        "paymentMethod": { "type": "object" },
+        "invoices": { "type": "array" }
+      },
+      "required": ["id", "advertiserId", "balance"]
+    },
+    "AdReport": {
+      "title": "AdReport",
+      "description": "Aggregated daily reporting metrics",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "campaignId": { "type": "string" },
+        "impressions": { "type": "number" },
+        "reach": { "type": "number" },
+        "clicks": { "type": "number" },
+        "ctr": { "type": "number" },
+        "conversions": { "type": "number" },
+        "downloads": { "type": "number" },
+        "followersGained": { "type": "number" },
+        "videoViews": { "type": "number" },
+        "songPlays": { "type": "number" },
+        "livestreamViews": { "type": "number" },
+        "cost": { "type": "number" },
+        "cpc": { "type": "number" },
+        "cpm": { "type": "number" },
+        "cpa": { "type": "number" },
+        "date": { "type": "string" }
+      },
+      "required": ["id", "campaignId", "impressions", "clicks", "cost", "date"]
+    },
+    "AdTargeting": {
+      "title": "AdTargeting",
+      "description": "Saved targeting parameters template",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "countries": { "type": "array" },
+        "cities": { "type": "array" },
+        "languages": { "type": "array" },
+        "ageGroups": { "type": "array" },
+        "genders": { "type": "array" },
+        "genres": { "type": "array" },
+        "interests": { "type": "array" },
+        "creatorFollowers": { "type": "array" },
+        "devices": { "type": "array" },
+        "os": { "type": "array" }
+      },
+      "required": ["id", "name"]
+    },
+    "AdNotification": {
+      "title": "AdNotification",
+      "description": "Notification center events for Advertisers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "advertiserId": { "type": "string" },
+        "type": { "type": "string", "enum": ["campaign_started", "campaign_ended", "budget_exhausted", "ad_approved", "ad_rejected", "payment_success"] },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "advertiserId", "type", "title", "message", "read", "createdAt"]
+    },
+    "AdReview": {
+      "title": "AdReview",
+      "description": "Campaign publishing review trail",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "campaignId": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected", "changes_requested"] },
+        "reviewerId": { "type": "string" },
+        "notes": { "type": "string" },
+        "reviewedAt": { "type": "string" }
+      },
+      "required": ["id", "campaignId", "status", "reviewedAt"]
+    },
+    "MusicNewsArticle": {
+      "title": "MusicNewsArticle",
+      "description": "Daily music music news and editorial articles published on SoundStream",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique article identifier" },
+        "title": { "type": "string" },
+        "coverUrl": { "type": "string" },
+        "category": { "type": "string", "enum": ["New Releases", "Artist Updates", "Rising Artists", "Music Trends", "Concerts & Events", "Music Industry News"] },
+        "description": { "type": "string" },
+        "content": { "type": "string" },
+        "author": { "type": "string" },
+        "publishedAt": { "type": "string", "description": "Date and time the article was published" },
+        "scheduledAt": { "type": "string", "description": "Date and time scheduled for publication (if future)" },
+        "tags": { "type": "array" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "title", "category", "description", "content", "author", "publishedAt", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User accounts"
+    },
+    "/users/{userId}/ad_logs/{logId}": {
+      "schema": "AdLog",
+      "description": "Ad impression logs"
+    },
+    "/artists/{artistId}": {
+      "schema": "Artist",
+      "description": "Artist profiles"
+    },
+    "/songs/{songId}": {
+      "schema": "Song",
+      "description": "Song records collection"
+    },
+    "/playlists/{playlistId}": {
+      "schema": "Playlist",
+      "description": "Playlists collection"
+    },
+    "/likes/{likeId}": {
+      "schema": "Like",
+      "description": "Songs liked/favorited by users"
+    },
+    "/follows/{id}": {
+      "schema": "Follow",
+      "description": "Artists followed by users"
+    },
+    "/albums/{albumId}": {
+      "schema": "Album",
+      "description": "Albums and EPs collection"
+    },
+    "/likedSongs/{id}": {
+      "schema": "LikedSong",
+      "description": "Tracks favorited"
+    },
+    "/recentlyPlayed/{id}": {
+      "schema": "RecentlyPlayed",
+      "description": "Song playback history"
+    },
+    "/following/{id}": {
+      "schema": "Following",
+      "description": "Artists followed"
+    },
+    "/support_tickets/{ticketId}": {
+      "schema": "SupportTicket",
+      "description": "User feedback and help requests"
+    },
+    "/analytics_events/{eventId}": {
+      "schema": "AnalyticsEvent",
+      "description": "App action metrics"
+    },
+    "/wallets/{userId}": {
+      "schema": "Wallet",
+      "description": "User coin wallets"
+    },
+    "/coin_transactions/{transactionId}": {
+      "schema": "CoinTransaction",
+      "description": "Coin transactions list"
+    },
+    "/gift_catalog/{giftId}": {
+      "schema": "Gift",
+      "description": "Virtual gift configurations"
+    },
+    "/gift_transactions/{transactionId}": {
+      "schema": "GiftTransaction",
+      "description": "Virtual gifting operations"
+    },
+    "/diamond_wallets/{creatorId}": {
+      "schema": "DiamondWallet",
+      "description": "Creator Diamond wallets"
+    },
+    "/withdrawals/{withdrawalId}": {
+      "schema": "Withdrawal",
+      "description": "Withdrawal tickets"
+    },
+    "/leaderboards/{boardId}": {
+      "schema": "Leaderboard",
+      "description": "SoundStream dynamic rankings"
+    },
+    "/gift_inventory/{inventoryId}": {
+      "schema": "GiftInventory",
+      "description": "User gift inventories"
+    },
+    "/live_battles/{battleId}": {
+      "schema": "LiveBattle",
+      "description": "Active PK battles collection"
+    },
+    "/battle_invites/{inviteId}": {
+      "schema": "BattleInvite",
+      "description": "Invitations to PK battles"
+    },
+    "/battle_scores/{scoreId}": {
+      "schema": "BattleScore",
+      "description": "Points breakdown for PK battles"
+    },
+    "/battle_results/{resultId}": {
+      "schema": "BattleResult",
+      "description": "Archived PK battle outcomes"
+    },
+    "/battle_history/{historyId}": {
+      "schema": "BattleHistory",
+      "description": "Participation logs for PK battle dashboard"
+    },
+    "/battle_leaderboards/{boardId}": {
+      "schema": "BattleLeaderboard",
+      "description": "Rankings for PK battles"
+    },
+    "/agencies/{agencyId}": {
+      "schema": "Agency",
+      "description": "Agency profile details"
+    },
+    "/agency_members/{memberId}": {
+      "schema": "AgencyMember",
+      "description": "Agency members and team personnel"
+    },
+    "/agency_artists/{id}": {
+      "schema": "AgencyArtist",
+      "description": "Artists affiliated with an agency"
+    },
+    "/agency_contracts/{contractId}": {
+      "schema": "AgencyContract",
+      "description": "Affiliation digital contracts"
+    },
+    "/agency_permissions/{id}": {
+      "schema": "AgencyPermission",
+      "description": "Custom templates for staff roles"
+    },
+    "/agency_revenue/{revenueId}": {
+      "schema": "AgencyRevenue",
+      "description": "Finances and splits history"
+    },
+    "/agency_notifications/{notifId}": {
+      "schema": "AgencyNotification",
+      "description": "Agency notification alerts"
+    },
+    "/agency_verification/{verifyId}": {
+      "schema": "AgencyVerification",
+      "description": "Official verification requests"
+    },
+    "/ads_campaigns/{campaignId}": {
+      "schema": "AdCampaign",
+      "description": "Advertising campaigns"
+    },
+    "/ads_creatives/{creativeId}": {
+      "schema": "AdCreative",
+      "description": "Advertising creative details"
+    },
+    "/ads_payments/{paymentId}": {
+      "schema": "AdPayment",
+      "description": "Advertising system payments"
+    },
+    "/ads_billing/{billingId}": {
+      "schema": "AdBilling",
+      "description": "Advertising system billing information"
+    },
+    "/ads_reports/{reportId}": {
+      "schema": "AdReport",
+      "description": "Advertising aggregated reporting logs"
+    },
+    "/ads_targeting/{targetingId}": {
+      "schema": "AdTargeting",
+      "description": "Saved advertising targeting templates"
+    },
+    "/ads_notifications/{notificationId}": {
+      "schema": "AdNotification",
+      "description": "Advertising notification alerts"
+    },
+    "/ads_reviews/{reviewId}": {
+      "schema": "AdReview",
+      "description": "Advertising quality and copyright reviews"
+    },
+    "/music_news/{articleId}": {
+      "schema": "MusicNewsArticle",
+      "description": "Music News articles collection"
+    }
+  }
+}
