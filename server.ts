@@ -140,18 +140,52 @@ const adminAuthMiddleware = (req: express.Request, res: express.Response, next: 
 
 // API ENDPOINTS
 
-// XML Sitemap Generator for public live streams
+// XML Sitemap Generator for public live streams & independent landing pages
 app.get("/sitemap.xml", async (req, res) => {
   res.setHeader("Content-Type", "application/xml");
+  
+  const corePaths = [
+    "",
+    "home",
+    "music",
+    "video",
+    "livestream",
+    "library",
+    "music-news"
+  ];
+
+  const landingPaths = [
+    "artists", "trending", "playlists", "discover", "charts", "podcasts", "community",
+    "events", "ai", "rising", "genres", "fans", "stories", "store", "analytics",
+    "notifications", "local", "awards", "collab", "magazine", "audio", "ai-discover",
+    "lyrics", "create", "dj", "producers", "karaoke", "channels", "insights", "world",
+    "releases", "feed", "rewards", "academy", "premium", "for-artists", "verified", "jobs", "partners"
+  ];
+
   let sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">
-  <url>
-    <loc>https://soundstreamy.com/</loc>
-    <changefreq>always</changefreq>
-    <priority>1.0</priority>
-  </url>
 `;
 
+  // 1. Add core routes
+  corePaths.forEach((p) => {
+    const url = p ? `https://soundstreamy.com/${p}` : "https://soundstreamy.com/";
+    sitemap += `  <url>
+    <loc>${url}</loc>
+    <changefreq>always</changefreq>
+    <priority>1.0</priority>
+  </url>\n`;
+  });
+
+  // 2. Add sub-landing routes
+  landingPaths.forEach((p) => {
+    sitemap += `  <url>
+    <loc>https://soundstreamy.com/${p}</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>\n`;
+  });
+
+  // 3. Add active livestream URLs
   if (firestoreDb) {
     try {
       const activeStreamsSnapshot = await firestoreDb.collection("liveStreams")
@@ -168,7 +202,7 @@ app.get("/sitemap.xml", async (req, res) => {
         sitemap += `  <url>
     <loc>${streamUrl}</loc>
     <changefreq>always</changefreq>
-    <priority>0.8</priority>
+    <priority>0.7</priority>
     <video:video>
       <video:thumbnail_loc>${stream.thumbnailUrl || "https://images.unsplash.com/photo-1516280440614-37939bbacd6a?w=500&amp;q=80"}</video:thumbnail_loc>
       <video:title>${stream.title.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</video:title>
