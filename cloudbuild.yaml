@@ -32,8 +32,8 @@ steps:
         echo "Resolved build tag: $TAG"
         
         docker build \
-          -t "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/soundstream:$TAG" \
-          -t "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/soundstream:latest" \
+          -t "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/soundstreamy:$TAG" \
+          -t "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/soundstreamy:latest" \
           .
 
   # Step 2: Push the unique-tagged container image to Artifact Registry
@@ -45,14 +45,14 @@ steps:
       - |
         TAG=$(cat /workspace/image-tag.txt)
         echo "Pushing unique image with tag: $TAG"
-        docker push "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/soundstream:$TAG"
+        docker push "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/soundstreamy:$TAG"
 
   # Step 3: Push the latest-tagged container image to Artifact Registry for caching/reference
   - name: 'gcr.io/cloud-builders/docker'
     id: 'Push Latest Image to Artifact Registry'
     args:
       - 'push'
-      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/soundstream:latest'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/soundstreamy:latest'
 
   # Step 4: Automatically redeploy the newly pushed container revision to Google Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -63,8 +63,8 @@ steps:
       - |
         TAG=$(cat /workspace/image-tag.txt)
         echo "Deploying container image to Cloud Run using tag: $TAG"
-        gcloud run deploy soundstream \
-          --image="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/soundstream:$TAG" \
+        gcloud run deploy soundstreamy \
+          --image="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/soundstreamy:$TAG" \
           --region="${_REGION}" \
           --platform=managed \
           --allow-unauthenticated
@@ -78,4 +78,4 @@ options:
   logging: CLOUD_LOGGING_ONLY
 
 images:
-  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/soundstream:latest'
+  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/soundstreamy:latest'

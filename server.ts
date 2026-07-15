@@ -93,7 +93,7 @@ function getDynamicHostUrl(req: express.Request): string {
 app.use((req, res, next) => {
   const host = req.get("host");
   // Only redirect standard production Cloud Run domain requests
-  if (host === "soundstream-1002860778025.europe-west1.run.app") {
+  if (host === "soundstream-1002860778025.europe-west1.run.app" || host === "soundstreamy-1002860778025.europe-west1.run.app") {
     // Only redirect GET page requests to preserve custom domain logins and cookie access
     if (req.method === "GET" && !req.path.startsWith("/api") && !req.path.includes(".")) {
       const canonicalUrl = `https://soundstreamy.com${req.originalUrl}`;

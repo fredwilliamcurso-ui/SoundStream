@@ -17,13 +17,14 @@ echo -e "${CYAN}       SOUNDSTREAM AUTOMATED GCP IAM DIAGNOSTIC & REPAIR ENGINE 
 echo -e "${CYAN}========================================================================${NC}"
 
 # 1. Get and Verify Active Project ID
+echo -e "${BLUE}🤖 Setting active Google Cloud project to target ID: ${YELLOW}project-8462457c-9513-4dcb-9e9${NC}..."
+gcloud config set project project-8462457c-9513-4dcb-9e9 &>/dev/null || true
+
 PROJECT_ID=$(gcloud config get-value project 2>/dev/null)
 if [ -z "$PROJECT_ID" ] || [ "$PROJECT_ID" = "(unset)" ]; then
-  echo -e "${RED}❌ Error: No active Google Cloud project ID found in gcloud config.${NC}"
-  echo "Please set your project using: gcloud config set project YOUR_PROJECT_ID"
-  exit 1
+  PROJECT_ID="project-8462457c-9513-4dcb-9e9"
 fi
-echo -e "${GREEN}✔ Detected Active Project ID: ${YELLOW}$PROJECT_ID${NC}"
+echo -e "${GREEN}✔ Active Project ID set to: ${YELLOW}$PROJECT_ID${NC}"
 
 # 2. Get and Verify Project Number
 echo -e "${BLUE}🤖 Fetching project metadata from Google Resource Manager...${NC}"
@@ -199,11 +200,11 @@ if gsutil ls -b "$BUILD_BUCKET" &>/dev/null; then
 fi
 
 # 9. Perform Production Deployment
-echo -e "${BLUE}🚀 Step 6: Deploying 'soundstream' service to Google Cloud Run (Region: europe-west1)...${NC}"
+echo -e "${BLUE}🚀 Step 6: Deploying 'soundstreamy' service to Google Cloud Run (Region: europe-west1)...${NC}"
 echo -e "${CYAN}Executing source compilation and zero-downtime rolling release...${NC}"
 
 # Execute gcloud run deploy
-if gcloud run deploy soundstream \
+if gcloud run deploy soundstreamy \
   --source . \
   --region europe-west1 \
   --allow-unauthenticated \
