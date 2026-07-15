@@ -2,6 +2,7 @@
 *.jar binary
 *.png binary
 *.jpg binary
+*.jpeg binary
 *.keystore binary
 *.apk binary
 *.aab binary
