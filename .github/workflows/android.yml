@@ -41,6 +41,13 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x android/gradlew
 
+      - name: Generate release keystore
+        run: npx tsx scripts/generate-keystore.ts
+        env:
+          SOUNDSTREAM_KEYSTORE_PASSWORD: ${{ secrets.SOUNDSTREAM_KEYSTORE_PASSWORD }}
+          SOUNDSTREAM_KEY_ALIAS: ${{ secrets.SOUNDSTREAM_KEY_ALIAS }}
+          SOUNDSTREAM_KEY_PASSWORD: ${{ secrets.SOUNDSTREAM_KEY_PASSWORD }}
+
       - name: Build signed Android App Bundle
         run: |
           cd android
