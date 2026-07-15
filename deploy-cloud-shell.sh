@@ -200,23 +200,43 @@ if gsutil ls -b "$BUILD_BUCKET" &>/dev/null; then
 fi
 
 # 9. Perform Production Deployment
-echo -e "${BLUE}🚀 Step 6: Deploying 'soundstreamy' service to Google Cloud Run (Region: europe-west1)...${NC}"
+echo -e "${BLUE}🚀 Step 6: Deploying to Google Cloud Run (Region: europe-west1)...${NC}"
 echo -e "${CYAN}Executing source compilation and zero-downtime rolling release...${NC}"
 
-# Execute gcloud run deploy
+SUCCESS=false
+
+echo -e "${BLUE}🤖 Attempting deployment to Cloud Run service '${YELLOW}soundstreamy${BLUE}'...${NC}"
 if gcloud run deploy soundstreamy \
   --source . \
   --region europe-west1 \
   --allow-unauthenticated \
   --project="$PROJECT_ID"; then
-  
+  SUCCESS=true
+  echo -e "${GREEN}✔ Successfully deployed to 'soundstreamy'!${NC}"
+else
+  echo -e "${YELLOW}⚠ Deployment to 'soundstreamy' failed or service does not exist. Attempting fallback...${NC}"
+fi
+
+echo -e "${BLUE}🤖 Attempting deployment to Cloud Run service '${YELLOW}soundstream${BLUE}'...${NC}"
+if gcloud run deploy soundstream \
+  --source . \
+  --region europe-west1 \
+  --allow-unauthenticated \
+  --project="$PROJECT_ID"; then
+  SUCCESS=true
+  echo -e "${GREEN}✔ Successfully deployed to 'soundstream'!${NC}"
+else
+  echo -e "${YELLOW}⚠ Deployment to 'soundstream' failed or service does not exist.${NC}"
+fi
+
+if [ "$SUCCESS" = "true" ]; then
   echo -e "${GREEN}========================================================================${NC}"
   echo -e "${GREEN}🎉 SUCCESS: SoundStream has been successfully deployed to production!   ${NC}"
   echo -e "${GREEN}========================================================================${NC}"
   exit 0
 else
   echo -e "${RED}========================================================================${NC}"
-  echo -e "${RED}❌ ERROR: Cloud Run deployment failed!                                  ${NC}"
+  echo -e "${RED}❌ ERROR: Cloud Run deployment failed for both services!                ${NC}"
   echo -e "${RED}========================================================================${NC}"
   echo -e "${YELLOW}Please inspect the error trace above. Common causes include:${NC}"
   echo -e "1. ${YELLOW}Billing is disabled:${NC} Verify a valid payment card is connected under your billing account console."

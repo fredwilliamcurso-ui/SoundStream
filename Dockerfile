@@ -4,6 +4,9 @@ FROM node:20-alpine AS builder
 # Set the working directory
 WORKDIR /app
 
+# Optimize Node memory limits for compilation inside resource-constrained build environments
+ENV NODE_OPTIONS="--max-old-space-size=1536"
+
 # Copy dependency catalogs
 COPY package*.json ./
 

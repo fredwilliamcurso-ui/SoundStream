@@ -14,7 +14,7 @@ steps:
         gcloud artifacts repositories create "${_REPOSITORY}" \
           --repository-format=docker \
           --location="${_REGION}" \
-          --description="SoundStream container images"
+          --description="SoundStream container images" || true
 
   # Step 1: Build the container image using Docker with bulletproof tag resolution
   - name: 'gcr.io/cloud-builders/docker'
@@ -63,11 +63,40 @@ steps:
       - |
         TAG=$(cat /workspace/image-tag.txt)
         echo "Deploying container image to Cloud Run using tag: $TAG"
-        gcloud run deploy soundstreamy \
+        
+        SUCCESS=false
+
+        echo "🚀 Deploying to Cloud Run service 'soundstreamy'..."
+        if gcloud run deploy soundstreamy \
           --image="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/soundstreamy:$TAG" \
           --region="${_REGION}" \
           --platform=managed \
-          --allow-unauthenticated
+          --allow-unauthenticated; then
+          SUCCESS=true
+          echo "✅ Successfully deployed to soundstreamy!"
+        else
+          echo "⚠️ Deployment to soundstreamy failed or service does not exist."
+        fi
+
+        echo "🚀 Deploying to Cloud Run service 'soundstream'..."
+        if gcloud run deploy soundstream \
+          --image="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/soundstreamy:$TAG" \
+          --region="${_REGION}" \
+          --platform=managed \
+          --allow-unauthenticated; then
+          SUCCESS=true
+          echo "✅ Successfully deployed to soundstream!"
+        else
+          echo "⚠️ Deployment to soundstream failed or service does not exist."
+        fi
+
+        if [ "$SUCCESS" = "true" ]; then
+          echo "🎉 SUCCESS: At least one Cloud Run service deployed successfully."
+          exit 0
+        else
+          echo "❌ ERROR: Failed to deploy to both 'soundstreamy' and 'soundstream' services."
+          exit 1
+        fi
 
 # Define easily customizable regional defaults that can be overridden via the trigger config
 substitutions:
