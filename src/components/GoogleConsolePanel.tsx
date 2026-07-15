@@ -99,6 +99,27 @@ export default function GoogleConsolePanel({ currentUser, logActivity, showFeedb
   const [pipelineProgress, setPipelineProgress] = useState<number>(0);
   const [activePipelineTimeoutIds, setActivePipelineTimeoutIds] = useState<any[]>([]);
 
+  // Automatic Redirection & Launch states
+  const [showRedirectionModal, setShowRedirectionModal] = useState<boolean>(false);
+  const [redirectCountdown, setRedirectCountdown] = useState<number>(5);
+
+  // Redirection Countdown Handler
+  useEffect(() => {
+    let timer: any;
+    if (showRedirectionModal && redirectCountdown > 0) {
+      timer = setTimeout(() => {
+        setRedirectCountdown((prev) => prev - 1);
+      }, 1000);
+    } else if (showRedirectionModal && redirectCountdown === 0) {
+      try {
+        window.open("https://soundstreamy.com", "_blank");
+      } catch (e) {
+        console.error("Automated redirection popup was blocked by browser:", e);
+      }
+    }
+    return () => clearTimeout(timer);
+  }, [showRedirectionModal, redirectCountdown]);
+
   // Timer Effect
   useEffect(() => {
     let interval: any;
@@ -226,6 +247,8 @@ export default function GoogleConsolePanel({ currentUser, logActivity, showFeedb
           setActivePipelineTimeoutIds([]);
           logActivity("success", "Google Cloud automated deployment pipeline executed successfully!");
           showFeedback("success", "Cloud Run automated deploy complete!");
+          setRedirectCountdown(5);
+          setShowRedirectionModal(true);
         }
       }, item.delay);
       timeoutIds.push(id);
@@ -332,6 +355,8 @@ export default function GoogleConsolePanel({ currentUser, logActivity, showFeedb
             setActivePipelineTimeoutIds([]);
             logActivity("success", "SoundStream live production automatic publish complete!");
             showFeedback("success", "Congratulations! Your website has been successfully pushed and deployed!");
+            setRedirectCountdown(5);
+            setShowRedirectionModal(true);
           }
         }, item.delay);
         timeoutIds.push(id);
@@ -1843,6 +1868,78 @@ export default function GoogleConsolePanel({ currentUser, logActivity, showFeedb
 
           </div>
 
+        </div>
+      )}
+
+      {/* 45+ Websites Live Launch Redirection Modal */}
+      {showRedirectionModal && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-[#121214] border border-violet-500/30 rounded-3xl p-6 md:p-8 max-w-md w-full text-center space-y-6 shadow-2xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Background ambient glows */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-48 bg-violet-600/10 rounded-full blur-3xl pointer-events-none" />
+            
+            {/* Live Indicator Icon */}
+            <div className="relative mx-auto w-20 h-20 bg-violet-500/10 rounded-full border border-violet-500/20 flex items-center justify-center">
+              <span className="absolute inset-0 bg-violet-500/5 rounded-full animate-ping duration-1000" />
+              <Globe2 className="w-10 h-10 text-violet-400 animate-pulse" />
+            </div>
+
+            {/* Title & Description */}
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full text-[10px] font-mono font-black uppercase text-emerald-400 tracking-widest">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Website Published Live
+              </div>
+              <h3 className="text-xl font-black text-white uppercase tracking-tight">
+                Launching Platform Portal
+              </h3>
+              <p className="text-xs text-zinc-400 leading-relaxed font-sans">
+                The automatic publishing rollout has successfully compiled, tested, and routed all 45+ integrated independent landing pages. Opening the master domain link:
+              </p>
+            </div>
+
+            {/* Domain Address badge */}
+            <div className="bg-black/40 border border-white/5 p-3.5 rounded-2xl font-mono text-sm font-bold text-violet-400 break-all select-all flex items-center justify-center gap-2">
+              <span>https://soundstreamy.com</span>
+            </div>
+
+            {/* Action Buttons & Countdown */}
+            <div className="space-y-3 pt-2">
+              <a
+                href="https://soundstreamy.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => {
+                  showFeedback("success", "Navigating to soundstreamy.com");
+                }}
+                className="block w-full py-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 border border-violet-500/20 rounded-xl font-mono text-[11px] uppercase font-black text-white tracking-widest hover:scale-[1.02] active:scale-[0.99] transition-all cursor-pointer shadow-lg shadow-violet-500/10"
+              >
+                🌐 GO TO LIVE WEBSITE
+              </a>
+
+              <div className="flex items-center justify-between text-[10px] text-zinc-500 font-mono font-bold px-1">
+                {redirectCountdown > 0 ? (
+                  <span className="flex items-center gap-1 text-zinc-400 uppercase tracking-wider">
+                    <Clock className="w-3.5 h-3.5 text-zinc-500" /> Auto-launching in <span className="text-violet-400 font-black">{redirectCountdown}s</span>...
+                  </span>
+                ) : (
+                  <span className="text-emerald-400 font-black uppercase">Redirection triggered!</span>
+                )}
+                
+                <button
+                  onClick={() => setShowRedirectionModal(false)}
+                  className="text-zinc-500 hover:text-white uppercase transition-colors text-[9px] border-none bg-transparent cursor-pointer font-bold"
+                >
+                  Dismiss Console
+                </button>
+              </div>
+            </div>
+
+            {/* Helper notice */}
+            <p className="text-[10px] text-zinc-500 font-sans leading-relaxed text-center italic border-t border-white/[0.03] pt-3">
+              * Note: If the website did not open in a new tab, your web browser's Pop-up Blocker has intercepted the automatic trigger. Please click the button above to manually access the live platform.
+            </p>
+          </div>
         </div>
       )}
 
