@@ -199,7 +199,15 @@ if gsutil ls -b "$BUILD_BUCKET" &>/dev/null; then
   gsutil iam ch "user:$ACTIVE_ACCOUNT:objectAdmin" "$BUILD_BUCKET" &>/dev/null || true
 fi
 
-# 9. Perform Production Deployment
+# 9. Self-Cleaning Conflicting Cloud Run Custom Domain Mappings
+echo -e "${BLUE}🧹 Step 5.5: Safely removing conflicting Cloud Run custom domain mappings for 'soundstreamy.com'...${NC}"
+gcloud beta run domain-mappings delete --domain=soundstreamy.com --project="$PROJECT_ID" --quiet 2>/dev/null && {
+  echo -e "   ${GREEN}✔ Conflicting Cloud Run domain mapping for 'soundstreamy.com' removed successfully.${NC}"
+} || {
+  echo -e "   ${YELLOW}⚠ Note: No active conflicting Cloud Run domain mapping found or it was already removed. Continuing...${NC}"
+}
+
+# 10. Perform Production Deployment
 echo -e "${BLUE}🚀 Step 6: Deploying to Google Cloud Run (Region: europe-west1)...${NC}"
 echo -e "${CYAN}Executing source compilation and zero-downtime rolling release...${NC}"
 
