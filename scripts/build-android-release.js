@@ -1,6 +1,42 @@
 import { execSync, spawn } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
+import https from "https";
+
+function downloadGradleWrapperJar(destPath) {
+  return new Promise((resolve, reject) => {
+    console.log(`📥 Repairing: Downloading fresh gradle-wrapper.jar from Gradle source to ${destPath}...`);
+    
+    // Ensure parent directory exists
+    const dir = path.dirname(destPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    const file = fs.createWriteStream(destPath);
+    const url = "https://raw.githubusercontent.com/gradle/gradle/v8.10.2/gradle/wrapper/gradle-wrapper.jar";
+    https.get(url, (response) => {
+      if (response.statusCode !== 200) {
+        file.close();
+        fs.unlinkSync(destPath);
+        reject(new Error(`Failed to download gradle-wrapper.jar: Status code ${response.statusCode}`));
+        return;
+      }
+      response.pipe(file);
+      file.on("finish", () => {
+        file.close();
+        console.log("✅ Successfully downloaded and repaired gradle-wrapper.jar!");
+        resolve(true);
+      });
+    }).on("error", (err) => {
+      file.close();
+      if (fs.existsSync(destPath)) {
+        fs.unlinkSync(destPath);
+      }
+      reject(err);
+    });
+  });
+}
 
 function runCmd(cmd, cwd = process.cwd()) {
   console.log(`Executing: ${cmd} in ${cwd}`);
@@ -97,6 +133,16 @@ async function main() {
     }
   } else {
     console.log("\n🔑 Step 3.5: Release keystore already exists. Skipping generation.");
+  }
+
+  // 3.8 Ensure gradle-wrapper.jar is uncorrupted
+  const wrapperJarPath = path.join(androidDir, "gradle/wrapper/gradle-wrapper.jar");
+  console.log("\n🛡️ Step 3.8: Repairing and verifying Gradle Wrapper JAR...");
+  try {
+    await downloadGradleWrapperJar(wrapperJarPath);
+  } catch (err) {
+    console.warn("⚠️ Warning: Failed to download fresh gradle-wrapper.jar via HTTPS:", err.message);
+    console.log("Attempting fallback using existing jar...");
   }
 
   // 6. Run Gradle build (Clean and BundleRelease)
