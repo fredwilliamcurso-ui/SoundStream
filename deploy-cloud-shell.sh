@@ -238,6 +238,36 @@ else
 fi
 
 if [ "$SUCCESS" = "true" ]; then
+  # 11. Deploy Frontend to Firebase Hosting
+  echo -e "\n${BLUE}⚡ Step 7: Preparing and deploying production frontend to Firebase Hosting...${NC}"
+  
+  if command -v npm &>/dev/null; then
+    echo -e "   ${CYAN}⚙ Installing local dependencies (npm install)...${NC}"
+    npm install --legacy-peer-deps &>/dev/null || npm install --legacy-peer-deps
+    
+    echo -e "   ${CYAN}⚙ Compiling production frontend bundle (npm run build)...${NC}"
+    npm run build
+    
+    if [ -d "dist" ]; then
+      echo -e "   ${GREEN}✔ Production build completed successfully!${NC}"
+      
+      # Ensure firebase CLI is available or run via npx
+      echo -e "   ${CYAN}🚀 Deploying static assets to Firebase Hosting...${NC}"
+      if command -v firebase &>/dev/null; then
+        firebase deploy --only hosting --project="$PROJECT_ID"
+      else
+        echo -e "   ${YELLOW}⚠ firebase-tools command not found. Deploying via npx...${NC}"
+        npx firebase deploy --only hosting --project="$PROJECT_ID"
+      fi
+    else
+      echo -e "   ${RED}❌ Error: 'dist' directory not found. Frontend compilation failed.${NC}"
+      exit 1
+    fi
+  else
+    echo -e "   ${RED}❌ Error: 'npm' is not installed in this environment. Unable to compile frontend.${NC}"
+    exit 1
+  fi
+
   echo -e "${GREEN}========================================================================${NC}"
   echo -e "${GREEN}🎉 SUCCESS: SoundStream has been successfully deployed to production!   ${NC}"
   echo -e "${GREEN}========================================================================${NC}"
