@@ -47,9 +47,7 @@ deploy_hosting:
     - apt-get install -yq nodejs
     - npm ci --cache .npm --prefer-offline
   script:
-    - npm run build
-    -npx -p firebase-tools firebase deploy --token "$FIREBASE_TOKEN" 
-    --only hosting --project 
-    "project-8462457c-9513-4dcb-9e9"
+      - npm run build
+        - npx -p firebase-tools firebase deploy --token "$FIREBASE_TOKEN" --only hosting --project "project-8462457c-9513-4dcb-9e9"
   only:
     - main
