@@ -1,0 +1,75 @@
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "hosting": {
+    "public": "dist",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/api/**",
+        "run": {
+          "serviceId": "soundstreamy",
+          "region": "europe-west1"
+        }
+      },
+      {
+        "source": "/create-checkout-session",
+        "run": {
+          "serviceId": "soundstreamy",
+          "region": "europe-west1"
+        }
+      },
+      {
+        "source": "/verify-payment",
+        "run": {
+          "serviceId": "soundstreamy",
+          "region": "europe-west1"
+        }
+      },
+      {
+        "source": "/stripe/webhook",
+        "run": {
+          "serviceId": "soundstreamy",
+          "region": "europe-west1"
+        }
+      },
+      {
+        "source": "/wallet/**",
+        "run": {
+          "serviceId": "soundstreamy",
+          "region": "europe-west1"
+        }
+      },
+      {
+        "source": "/transactions/**",
+        "run": {
+          "serviceId": "soundstreamy",
+          "region": "europe-west1"
+        }
+      },
+      {
+        "source": "/Soundstream.apk",
+        "run": {
+          "serviceId": "soundstreamy",
+          "region": "europe-west1"
+        }
+      },
+      {
+        "source": "/sitemap.xml",
+        "run": {
+          "serviceId": "soundstreamy",
+          "region": "europe-west1"
+        }
+      },
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}
