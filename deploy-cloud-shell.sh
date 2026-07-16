@@ -201,7 +201,7 @@ fi
 
 # 9. Self-Cleaning Conflicting Cloud Run Custom Domain Mappings
 echo -e "${BLUE}🧹 Step 5.5: Safely removing conflicting Cloud Run custom domain mappings for 'soundstreamy.com'...${NC}"
-gcloud beta run domain-mappings delete --domain=soundstreamy.com --project="$PROJECT_ID" --quiet 2>/dev/null && {
+gcloud beta run domain-mappings delete --domain=soundstreamy.com --project="$PROJECT_ID" --region=europe-west1 --quiet 2>/dev/null && {
   echo -e "   ${GREEN}✔ Conflicting Cloud Run domain mapping for 'soundstreamy.com' removed successfully.${NC}"
 } || {
   echo -e "   ${YELLOW}⚠ Note: No active conflicting Cloud Run domain mapping found or it was already removed. Continuing...${NC}"
