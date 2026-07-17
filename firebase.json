@@ -9,6 +9,13 @@
       "**/.*",
       "**/node_modules/**"
     ],
+    "redirects": [
+      {
+        "source": "/Soundstream.apk",
+        "destination": "https://drive.google.com/uc?export=download&id=1SPqh9sOUfMUU801udi-t4cUqvJmQpQsW",
+        "type": 302
+      }
+    ],
     "rewrites": [
       {
         "source": "/api/**",
@@ -47,13 +54,6 @@
       },
       {
         "source": "/transactions/**",
-        "run": {
-          "serviceId": "soundstreamy",
-          "region": "europe-west1"
-        }
-      },
-      {
-        "source": "/Soundstream.apk",
         "run": {
           "serviceId": "soundstreamy",
           "region": "europe-west1"
