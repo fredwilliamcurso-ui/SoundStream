@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import https from "https";
 
-function runCmd(cmd: string, hideInLogs: string | null = null) {
+function runCmd(cmd: string, hideInLogs: string | null = null): string {
   const logCmd = hideInLogs ? cmd.replace(hideInLogs, "********") : cmd;
   console.log(`Executing: ${logCmd}`);
   try {
@@ -15,6 +15,26 @@ function runCmd(cmd: string, hideInLogs: string | null = null) {
   } catch (error: any) {
     const errMsg = error.stderr ? error.stderr.toString().trim() : error.message;
     const cleanErrMsg = hideInLogs ? errMsg.replace(hideInLogs, "********") : errMsg;
+    
+    // Check for corrupt index or unknown entry format
+    if (cleanErrMsg.includes("unknown index entry format") || cleanErrMsg.includes("index file is corrupt") || cleanErrMsg.includes("corrupt")) {
+      console.log("⚠️ Detected corrupted Git index. Repairing automatically and retrying...");
+      const indexPath = path.join(process.cwd(), ".git", "index");
+      if (fs.existsSync(indexPath)) {
+        try {
+          fs.unlinkSync(indexPath);
+          console.log("✅ Corrupted .git/index removed. Retrying command...");
+          const output = execSync(cmd, {
+            stdio: "pipe",
+            env: { ...process.env, GIT_TERMINAL_PROMPT: "0" }
+          });
+          return output.toString().trim();
+        } catch (repairErr: any) {
+          console.error("❌ Failed to remove corrupt index file:", repairErr.message);
+        }
+      }
+    }
+    
     throw new Error(`Command failed: ${cleanErrMsg}`);
   }
 }
