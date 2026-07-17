@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "mkdir -p public && (cp src/public/app-release.aab public/app-release.aab 2>/dev/null || echo 'app-release.aab not found, skipping copy') && tsx scripts/download-gcs.ts && vite build && (rm -f dist/*.apk dist/*.aab dist/*.keystore dist/Soundstream.apk 2>/dev/null || true) && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --outfile=dist/server.cjs",
+    "build": "mkdir -p public && (cp src/public/app-release.aab public/app-release.aab 2>/dev/null || echo 'app-release.aab not found, skipping copy') && tsx scripts/download-gcs.ts && vite build && (rm -f dist/*.aab dist/*.keystore 2>/dev/null || true) && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
     "build:android": "node scripts/build-android-release.js",
     "push-github": "tsx scripts/push-to-github.ts",
