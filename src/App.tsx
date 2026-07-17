@@ -141,9 +141,9 @@ export default function App() {
       if (currentTab !== "creator-hub") setCurrentTab("creator-hub");
     } else if (path === "/leaderboards") {
       if (currentTab !== "leaderboards") setCurrentTab("leaderboards");
-    } else if (path === "/agency") {
+    } else if (path === "/agency" || path === "/agency-hub") {
       if (currentTab !== "agency") setCurrentTab("agency");
-    } else if (path === "/ads") {
+    } else if (path === "/ads" || path === "/ads-manager") {
       if (currentTab !== "ads") setCurrentTab("ads");
     } else if (path === "/premium") {
       if (currentTab !== "premium") setCurrentTab("premium");
@@ -157,7 +157,7 @@ export default function App() {
         "/notifications", "/local", "/awards", "/collab", "/magazine", "/audio", "/ai-discover",
         "/lyrics", "/create", "/dj", "/producers", "/karaoke", "/channels", "/insights", "/world",
         "/reviews", "/hall-of-fame", "/releases", "/rewards", "/verified", "/academy", "/feed",
-        "/jobs", "/partners"
+        "/jobs", "/partners", "/subscriptions", "/gifts"
       ];
       if (landingPagePaths.includes(path)) {
         if (currentTab !== "landing-page") setCurrentTab("landing-page");
@@ -2490,7 +2490,7 @@ export default function App() {
                   SoundStream Live Auto-Publishing Console
                 </h4>
                 <p className="text-[10px] text-zinc-400 font-sans mt-0.5">
-                  Synchronize your AI Studio workspace modifications to GitHub and trigger automatic deployment to <span className="text-teal-300 font-semibold font-mono">soundstreamy.com</span> in one click.
+                  Synchronize your AI Studio workspace modifications to GitLab and trigger automatic deployment to <span className="text-teal-300 font-semibold font-mono">soundstreamy.com</span> in one click.
                 </p>
               </div>
             </div>

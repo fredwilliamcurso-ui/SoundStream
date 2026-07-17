@@ -193,11 +193,23 @@ async function main() {
     console.log("Branch checkout info:", checkoutErr.message);
   }
 
-  // 5. Stage files (ignoring anything in .gitignore)
+  // 5. Try to fetch remote main to align branch history and avoid force-pushes on protected branches
+  console.log("Fetching remote 'main' branch status to align history...");
+  let remoteExists = false;
+  try {
+    runCmd(`git fetch origin main`, gitlabPat);
+    remoteExists = true;
+    console.log("✅ Remote 'main' branch exists. Resetting local branch pointer to align history...");
+    runCmd("git reset origin/main");
+  } catch (fetchErr: any) {
+    console.log("ℹ️ Remote 'main' branch does not exist or is empty. Proceeding with initial history.");
+  }
+
+  // 6. Stage files (ignoring anything in .gitignore)
   console.log("Staging project files...");
   runCmd("git add .");
 
-  // 6. Check status and commit
+  // 7. Check status and commit
   console.log("Checking for changes...");
   const statusOutput = runCmd("git status --porcelain");
   if (!statusOutput) {
@@ -208,7 +220,7 @@ async function main() {
     runCmd(`git commit -m "${msg}"`);
   }
 
-  // 7. Push to GitLab
+  // 8. Push to GitLab
   console.log("Pushing code to GitLab 'main' branch...");
   try {
     // Try standard push first (works on protected branches when history is aligned)

@@ -159,7 +159,8 @@ app.get("/sitemap.xml", async (req, res) => {
     "events", "ai", "rising", "genres", "fans", "stories", "store", "analytics",
     "notifications", "local", "awards", "collab", "magazine", "audio", "ai-discover",
     "lyrics", "create", "dj", "producers", "karaoke", "channels", "insights", "world",
-    "releases", "feed", "rewards", "academy", "premium", "for-artists", "verified", "jobs", "partners"
+    "releases", "feed", "rewards", "academy", "premium", "for-artists", "verified", "jobs", "partners",
+    "ads-manager", "agency-hub", "subscriptions", "gifts", "wallet"
   ];
 
   let sitemap = `<?xml version="1.0" encoding="UTF-8"?>
@@ -431,13 +432,13 @@ app.post("/api/admin/build-android", adminAuthMiddleware, (req, res) => {
   });
 });
 
-// 3. Trigger GitHub Sync & Auto-Publish Live Website
+// 3. Trigger GitLab Sync & Auto-Publish Live Website
 app.post("/api/admin/publish-website", adminAuthMiddleware, (req, res) => {
-  console.log("🚀 [Server] GitHub auto-publish triggered by administrator.");
+  console.log("🚀 [Server] GitLab auto-publish triggered by administrator.");
   
-  exec("npm run push-github", (error, stdout, stderr) => {
+  exec("npm run push-gitlab", (error, stdout, stderr) => {
     if (error) {
-      console.error(`❌ [Server] GitHub push error: ${error.message}`);
+      console.error(`❌ [Server] GitLab push error: ${error.message}`);
       res.status(500).json({
         success: false,
         error: error.message,
@@ -446,7 +447,7 @@ app.post("/api/admin/publish-website", adminAuthMiddleware, (req, res) => {
       return;
     }
     
-    console.log("✅ [Server] GitHub push pipeline completed successfully.");
+    console.log("✅ [Server] GitLab push pipeline completed successfully.");
     res.json({
       success: true,
       log: stdout
@@ -459,7 +460,12 @@ app.post("/api/admin/publish-website", adminAuthMiddleware, (req, res) => {
 // ==========================================
 
 app.get("/api/admin/github-pat", adminAuthMiddleware, (req, res) => {
-  const pat = process.env.GITHUB_PAT || process.env.GITHUB_TOKEN || "";
+  const pat = process.env.GITLAB_PAT || process.env.GITLAB_TOKEN || process.env.GITHUB_PAT || process.env.GITHUB_TOKEN || "";
+  res.json({ pat });
+});
+
+app.get("/api/admin/gitlab-pat", adminAuthMiddleware, (req, res) => {
+  const pat = process.env.GITLAB_PAT || process.env.GITLAB_TOKEN || "";
   res.json({ pat });
 });
 

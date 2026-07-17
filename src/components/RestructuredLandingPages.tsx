@@ -200,7 +200,12 @@ export function RestructuredLandingPages({
       "/academy": { title: "Independent Music Academy", subtitle: "Learn mixing, sound-design, and music marketing", icon: GraduationCap },
       "/feed": { title: "Social Activty Feed", subtitle: "See what friends and followed artists are publishing", icon: Users },
       "/jobs": { title: "Independent Music Jobs", subtitle: "Find jobs in audio engineering, label marketing, and art", icon: Briefcase },
-      "/partners": { title: "Brand Sponsorship Matrix", subtitle: "Sponsorship guides and partnership application details", icon: UserPlus }
+      "/partners": { title: "Brand Sponsorship Matrix", subtitle: "Sponsorship guides and partnership application details", icon: UserPlus },
+      "/ads-manager": { title: "Ad Campaign Manager", subtitle: "Ad placement coordinates, monetization metrics, and audience reaches", icon: Sliders },
+      "/agency-hub": { title: "Agency Center Hub", subtitle: "Creator network coordinator dashboard and agency support lines", icon: Users },
+      "/subscriptions": { title: "Creator Premium Subscriptions", subtitle: "Unlocking paywalled, member-only premium audio and artist releases", icon: Lock },
+      "/gifts": { title: "Digital Gift Store", subtitle: "Virtual gifts catalog to support your favorite live streamers", icon: ShoppingBag },
+      "/wallet": { title: "Digital Token Wallet", subtitle: "Manage your SoundCoins, credits, and active transactions securely", icon: Coins }
     };
 
     return titleMap[path] || { title: "SoundStream Landing Page", subtitle: "Experience the ultimate connected independent audio platform", icon: Music };

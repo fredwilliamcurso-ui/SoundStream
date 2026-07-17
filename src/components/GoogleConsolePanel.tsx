@@ -257,7 +257,7 @@ export default function GoogleConsolePanel({ currentUser, logActivity, showFeedb
     setActivePipelineTimeoutIds(timeoutIds);
   };
 
-  // Perform REAL GitHub sync and trigger GCP automatic compilation rollout
+  // Perform REAL GitLab sync and trigger GCP automatic compilation rollout
   const runRealPublishPipeline = async () => {
     if (isBuilding) return;
     setIsBuilding(true);
@@ -268,7 +268,7 @@ export default function GoogleConsolePanel({ currentUser, logActivity, showFeedb
       "🚀 [INIT] Initializing Real-time SoundStream Publisher...",
       "📡 Connecting to Google AI Studio secure sandbox container...",
       "📂 Staging local modified workspace files and directories...",
-      "⚡ Running production Git Push pipeline to remote repository (github.com/fredwilliamcurso-ui/SoundStream)..."
+      "⚡ Running production Git Push pipeline to remote repository (gitlab.com/fredwilliamcurso-group/Soundstreamy)..."
     ]);
 
     try {
@@ -288,7 +288,7 @@ export default function GoogleConsolePanel({ currentUser, logActivity, showFeedb
           ...prev,
           `❌ [ERROR] Production Git Push failed: ${data.error || "Unknown server error"}`,
           `📝 Server log traces:\n${data.log || ""}`,
-          `💡 Please verify that GITHUB_PAT is correctly configured in your AI Studio Secrets panel.`
+          `💡 Please verify that GITLAB_PAT is correctly configured in your AI Studio Secrets panel.`
         ]);
         setIsBuilding(false);
         showFeedback("error", "Automatic publish failed. See console terminal for details.");
@@ -299,11 +299,11 @@ export default function GoogleConsolePanel({ currentUser, logActivity, showFeedb
       setPipelineLogs((prev) => [
         ...prev,
         `=========================================================================`,
-        `🎉 SUCCESS: Workspace successfully synchronized with GitHub!`,
-        `🔗 Repository: https://github.com/fredwilliamcurso-ui/SoundStream`,
+        `🎉 SUCCESS: Workspace successfully synchronized with GitLab!`,
+        `🔗 Repository: https://gitlab.com/fredwilliamcurso-group/Soundstreamy`,
         `=========================================================================`,
-        `📡 [WEBHOOK SENT] Secure push webhook dispatched to Google Cloud Platform...`,
-        `🛡️ [TRIGGER MATCHED] Cloud Build Trigger 'soundstream-auto-deploy-trigger' invoked on master change.`
+        `📡 [WEBHOOK SENT] Secure push webhook dispatched to GitLab CI & Codemagic...`,
+        `🛡️ [TRIGGER MATCHED] GitLab Pipeline triggered successfully on main change.`
       ]);
 
       setPipelineStep(2);
@@ -1589,7 +1589,7 @@ export default function GoogleConsolePanel({ currentUser, logActivity, showFeedb
                 <span>⚠️ IMPORTANT: IF YOUR TERMINAL IS STUCK / PROMPTING</span>
               </div>
               <p className="text-zinc-300 font-sans text-xs leading-relaxed">
-                If your terminal is locked showing a prompt like <code className="text-[10px] font-mono text-red-400 bg-red-500/20 px-1.5 py-0.5 rounded">Username for 'https://github.com':</code> or <code className="text-[10px] font-mono text-red-400 bg-red-500/20 px-1.5 py-0.5 rounded">Password:</code>, you can easily clear it using any of these options:
+                If your terminal is locked showing a prompt like <code className="text-[10px] font-mono text-red-400 bg-red-500/20 px-1.5 py-0.5 rounded">Username for 'https://gitlab.com':</code> or <code className="text-[10px] font-mono text-red-400 bg-red-500/20 px-1.5 py-0.5 rounded">Password:</code>, you can easily clear it using any of these options:
               </p>
               <ul className="list-disc pl-5 text-zinc-300 font-sans text-xs space-y-1.5">
                 <li>
@@ -1609,11 +1609,11 @@ export default function GoogleConsolePanel({ currentUser, logActivity, showFeedb
             </p>
             <div className="bg-black/95 border border-amber-500/20 p-4 rounded-xl font-mono text-[11px] text-teal-300 relative overflow-x-auto shadow-2xl">
               <code className="whitespace-pre-wrap break-all pr-12 block leading-relaxed select-all text-teal-400">
-                {`cd ~ && go clean -modcache 2>/dev/null || true && chmod -R u+w ~ 2>/dev/null || true && rm -rf ~/gopath ~/SoundStream ~/.cache ~/.npm ~/.config ~/.local ~/* 2>/dev/null || true && git clone ${githubPat ? `https://${githubPat}@github.com/fredwilliamcurso-ui/SoundStream.git` : 'https://github.com/fredwilliamcurso-ui/SoundStream.git'} && cd SoundStream && chmod +x deploy-cloud-shell.sh && ./deploy-cloud-shell.sh`}
+                {`cd ~ && go clean -modcache 2>/dev/null || true && chmod -R u+w ~ 2>/dev/null || true && rm -rf ~/gopath ~/Soundstreamy ~/.cache ~/.npm ~/.config ~/.local ~/* 2>/dev/null || true && git clone ${githubPat ? `https://oauth2:${githubPat}@gitlab.com/fredwilliamcurso-group/Soundstreamy.git` : 'https://gitlab.com/fredwilliamcurso-group/Soundstreamy.git'} && cd Soundstreamy && chmod +x deploy-cloud-shell.sh && ./deploy-cloud-shell.sh`}
               </code>
               <button
                 onClick={() => {
-                  const cmd = `cd ~ && go clean -modcache 2>/dev/null || true && chmod -R u+w ~ 2>/dev/null || true && rm -rf ~/gopath ~/SoundStream ~/.cache ~/.npm ~/.config ~/.local ~/* 2>/dev/null || true && git clone ${githubPat ? `https://${githubPat}@github.com/fredwilliamcurso-ui/SoundStream.git` : 'https://github.com/fredwilliamcurso-ui/SoundStream.git'} && cd SoundStream && chmod +x deploy-cloud-shell.sh && ./deploy-cloud-shell.sh`;
+                  const cmd = `cd ~ && go clean -modcache 2>/dev/null || true && chmod -R u+w ~ 2>/dev/null || true && rm -rf ~/gopath ~/Soundstreamy ~/.cache ~/.npm ~/.config ~/.local ~/* 2>/dev/null || true && git clone ${githubPat ? `https://oauth2:${githubPat}@gitlab.com/fredwilliamcurso-group/Soundstreamy.git` : 'https://gitlab.com/fredwilliamcurso-group/Soundstreamy.git'} && cd Soundstreamy && chmod +x deploy-cloud-shell.sh && ./deploy-cloud-shell.sh`;
                   navigator.clipboard.writeText(cmd);
                   showFeedback("success", "Automated mega-command copied!");
                 }}
@@ -1636,7 +1636,7 @@ export default function GoogleConsolePanel({ currentUser, logActivity, showFeedb
               <div className="space-y-1">
                 <div className="flex items-center gap-1.5 text-zinc-200 font-bold font-sans text-xs">
                   <span className="text-amber-400">🔑</span>
-                  <span>GitHub Authentication Token</span>
+                  <span>GitLab Authentication Token</span>
                   {githubPat ? (
                     <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-mono px-1.5 py-0.5 rounded uppercase">Connected</span>
                   ) : (
@@ -1645,15 +1645,15 @@ export default function GoogleConsolePanel({ currentUser, logActivity, showFeedb
                 </div>
                 <p className="text-zinc-400 font-sans text-[11px] leading-relaxed max-w-xl">
                   {githubPat 
-                    ? "A secure GitHub Personal Access Token is active. The Copy Command is fully pre-authorized for password-free terminal execution."
-                    : "To prevent terminal username prompts, paste your GitHub Personal Access Token here, or try to load it from the secure server database."
+                    ? "A secure GitLab Personal Access Token is active. The Copy Command is fully pre-authorized for password-free terminal execution."
+                    : "To prevent terminal username prompts, paste your GitLab Personal Access Token here, or try to load it from the secure server database."
                   }
                 </p>
               </div>
               <div className="w-full md:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
                 <input
                   type="password"
-                  placeholder="Paste ghp_... secure token"
+                  placeholder="Paste glpat-... secure token"
                   value={githubPat}
                   onChange={(e) => setGithubPat(e.target.value)}
                   className="bg-black/60 border border-zinc-800 focus:border-amber-500/40 text-xs font-mono text-teal-400 px-3 py-2.5 rounded-xl focus:outline-none w-full md:w-64"
@@ -1673,7 +1673,7 @@ export default function GoogleConsolePanel({ currentUser, logActivity, showFeedb
                         const data = await response.json();
                         if (data.pat) {
                           setGithubPat(data.pat);
-                          showFeedback("success", "GitHub token loaded successfully!");
+                          showFeedback("success", "GitLab token loaded successfully!");
                         } else {
                           showFeedback("info", "Secure server has no token configured.");
                         }
@@ -1709,15 +1709,15 @@ export default function GoogleConsolePanel({ currentUser, logActivity, showFeedb
                 <div className="pl-9 space-y-4">
                   {/* Option A: Git Clone */}
                   <div className="space-y-2">
-                    <span className="text-[10px] uppercase font-bold tracking-wider text-teal-400 font-mono">Option A: Clone from GitHub (Highly Recommended & Fully Automated)</span>
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-teal-400 font-mono">Option A: Clone from GitLab (Highly Recommended & Fully Automated)</span>
                     <p className="text-zinc-400 font-sans text-xs leading-relaxed">
-                      Copy and run this command in Google Cloud Shell to instantly download your fully compiled code directly from your synchronized GitHub repository:
+                      Copy and run this command in Google Cloud Shell to instantly download your fully compiled code directly from your synchronized GitLab repository:
                     </p>
                     <div className="bg-black/60 border border-white/5 p-3 rounded-xl font-mono text-[9.5px] text-zinc-400 relative overflow-x-auto">
-                      <code className="text-teal-400">{`cd ~ && git clone ${githubPat ? `https://${githubPat}@github.com/fredwilliamcurso-ui/SoundStream.git` : 'https://github.com/fredwilliamcurso-ui/SoundStream.git'} && cd SoundStream`}</code>
+                      <code className="text-teal-400">{`cd ~ && git clone ${githubPat ? `https://oauth2:${githubPat}@gitlab.com/fredwilliamcurso-group/Soundstreamy.git` : 'https://gitlab.com/fredwilliamcurso-group/Soundstreamy.git'} && cd Soundstreamy`}</code>
                       <button
                         onClick={() => {
-                          const cmd = `cd ~ && git clone ${githubPat ? `https://${githubPat}@github.com/fredwilliamcurso-ui/SoundStream.git` : 'https://github.com/fredwilliamcurso-ui/SoundStream.git'} && cd SoundStream`;
+                          const cmd = `cd ~ && git clone ${githubPat ? `https://oauth2:${githubPat}@gitlab.com/fredwilliamcurso-group/Soundstreamy.git` : 'https://gitlab.com/fredwilliamcurso-group/Soundstreamy.git'} && cd Soundstreamy`;
                           navigator.clipboard.writeText(cmd);
                           showFeedback("success", "Clone command copied!");
                         }}
