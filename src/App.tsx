@@ -2677,7 +2677,7 @@ export default function App() {
           {/* Subtle version info */}
           <div className="flex justify-end pr-2">
             <span className="text-[10px] bg-black/60 border border-white/5 px-2.5 py-1 rounded-full text-zinc-400 font-medium">
-              Latest Version: <span className="text-violet-400 font-mono">v3.5.0</span> • Size: <span className="text-violet-400 font-mono">~11.4 MB</span>
+              Latest Version: <span className="text-violet-400 font-mono">v3.5.0</span> • Size: <span className="text-violet-400 font-mono">~8.8 MB</span>
             </span>
           </div>
         </div>

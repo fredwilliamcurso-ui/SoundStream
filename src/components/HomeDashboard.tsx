@@ -379,7 +379,7 @@ export default function HomeDashboard({
 
                 <div className="flex flex-col items-center gap-1 mt-3">
                   <span className="text-[9px] font-mono text-zinc-500">
-                    Size: ~11.4 MB • v3.5.0 Latest Release
+                    Size: ~8.8 MB • v3.5.0 Latest Release
                   </span>
                 </div>
               </div>
