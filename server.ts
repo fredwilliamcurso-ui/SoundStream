@@ -231,7 +231,7 @@ app.get("/soundstream-developers-site-verification", (req, res) => {
 // Secure dynamic download handler for the official Android APK (bypasses GCP build container/gcloudignore file exclusions)
 app.get("/Soundstream.apk", (req, res) => {
   console.log("[APK Redirect] Routing production app-download request directly to secure Google Drive hosting.");
-  res.redirect("https://drive.google.com/uc?export=download&id=1ul_JJPVklagFQidiFiNDzd95e4AG51l-");
+  res.redirect("https://drive.google.com/uc?export=download&id=1SPqh9sOUfMUU801udi-t4cUqvJmQpQsW");
 });
 
 // SoundStream AI Chat Endpoint
